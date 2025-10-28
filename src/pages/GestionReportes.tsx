@@ -20,33 +20,50 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockReportesDiarios, updateReportesDiarios, ReporteDiario, mockProyectos } from '@/data/mockData';
+// CORREGIDO: Asegurarnos de que importamos 'Usuario' si es necesario (aunque no se usa aquí, es buena práctica)
+import { mockReportesDiarios, updateReportesDiarios, ReporteDiario, mockProyectos, Usuario } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { Plus, FileText, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 
 const GestionReportes = () => {
   const { user } = useAuth();
-  const [reportes, setReportes] = useState(mockReportesDiarios);
+  // CORREGIDO: Asegurar que los estados iniciales siempre sean arrays
+  const [reportes, setReportes] = useState(mockReportesDiarios || []);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [formData, setFormData] = useState({
     fecha: new Date().toISOString().split('T')[0],
-    proyectoId: '',
+    proyectoId: '', // El estado inicial está bien como '', se poblará al abrir
     resumen: '',
   });
 
   const proyectoAsignado = user?.proyectoAsignadoId;
-  const filteredReportes = reportes.filter(r => 
+  
+  // CORREGIDO: Código defensivo para filtrar reportes
+  const filteredReportes = (reportes || []).filter(r =>
     proyectoAsignado ? r.proyectoId === proyectoAsignado : true
   ).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
+  // Esta función ahora establece los valores por defecto CADA VEZ que se llama
   const resetForm = () => {
     setFormData({
       fecha: new Date().toISOString().split('T')[0],
+      // CORREGIDO: Esta es la lógica clave. Se usará al abrir el modal.
       proyectoId: proyectoAsignado?.toString() || '',
       resumen: '',
     });
   };
+
+  // --- NUEVO HANDLER PARA EL MODAL ---
+  const handleCreateOpenChange = (open: boolean) => {
+    if (open) {
+      // Al ABRIR el modal, llamamos a resetForm
+      // para poblarlo con la fecha y el proyectoId del usuario.
+      resetForm();
+    }
+    setIsCreateOpen(open);
+  };
+  // --- FIN DEL NUEVO HANDLER ---
 
   const handleCreate = () => {
     if (!formData.fecha || !formData.proyectoId || !formData.resumen) {
@@ -59,21 +76,51 @@ const GestionReportes = () => {
       return;
     }
 
+    // CORREGIDO: Cálculo de ID más seguro
+    const currentReportes = reportes || [];
+    const newIdNum = currentReportes.length > 0 
+      ? Math.max(...currentReportes.map(r => parseInt(r.id.substring(1)))) + 1 
+      : 1;
+
     const newReporte: ReporteDiario = {
-      id: 'r' + (Math.max(...reportes.map(r => parseInt(r.id.substring(1)))) + 1),
+      id: 'r' + newIdNum,
       fecha: formData.fecha,
       proyectoId: parseInt(formData.proyectoId),
       creadoPor: user?.nombre || 'Usuario',
       resumen: formData.resumen,
     };
 
-    const newReportes = [...reportes, newReporte];
+    const newReportes = [...currentReportes, newReporte];
     setReportes(newReportes);
-    updateReportesDiarios(newReportes);
-    setIsCreateOpen(false);
-    resetForm();
+    if (typeof updateReportesDiarios === 'function') {
+      updateReportesDiarios(newReportes);
+    }
+    
+    handleCreateOpenChange(false); // CORREGIDO: Usar el handler para cerrar
+    // resetForm(); // CORREGIDO: Ya no es necesario aquí, el handler lo hará al abrir
     toast.success('Reporte diario registrado exitosamente');
   };
+
+  // --- RENDERIZADOR DEFENSIVO DE PROYECTOS ---
+  const renderProjectOptions = () => {
+    if (!Array.isArray(mockProyectos)) {
+      return <SelectItem value="loading" disabled>Cargando...</SelectItem>;
+    }
+
+    return mockProyectos
+      .filter(p => !proyectoAsignado || p.id === proyectoAsignado) // Lógica original
+      .map(p => (
+        <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
+      ));
+  };
+  
+  const getProjectName = (proyectoId?: number) => {
+    if (!proyectoId || !Array.isArray(mockProyectos)) {
+      return 'Proyecto no encontrado';
+    }
+    return mockProyectos.find(p => p.id === proyectoId)?.nombre || 'Proyecto no encontrado';
+  };
+  // --- FIN RENDERIZADOR ---
 
   return (
     <DashboardLayout>
@@ -83,7 +130,8 @@ const GestionReportes = () => {
             <h1 className="text-3xl font-bold text-foreground mb-2">Reportes Diarios de Obra</h1>
             <p className="text-muted-foreground">Registre el avance y actividades del día</p>
           </div>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          {/* CORREGIDO: Usar el nuevo handler onOpenChange */}
+          <Dialog open={isCreateOpen} onOpenChange={handleCreateOpenChange}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
@@ -106,20 +154,17 @@ const GestionReportes = () => {
                 </div>
                 <div>
                   <Label htmlFor="proyecto">Proyecto</Label>
-                  <Select 
-                    value={formData.proyectoId} 
+                  <Select
+                    value={formData.proyectoId}
                     onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}
-                    disabled={!!proyectoAsignado}
+                    disabled={!!proyectoAsignado} // Se deshabilita si el usuario tiene proyecto
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccione proyecto" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockProyectos
-                        .filter(p => !proyectoAsignado || p.id === proyectoAsignado)
-                        .map(p => (
-                          <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-                        ))}
+                      {/* CORREGIDO: Usar el renderizador defensivo */}
+                      {renderProjectOptions()}
                     </SelectContent>
                   </Select>
                 </div>
@@ -139,7 +184,8 @@ const GestionReportes = () => {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
+                {/* CORREGIDO: Usar el handler para cerrar */}
+                <Button variant="outline" onClick={() => handleCreateOpenChange(false)}>Cancelar</Button>
                 <Button onClick={handleCreate}>Crear Reporte</Button>
               </DialogFooter>
             </DialogContent>
@@ -147,6 +193,7 @@ const GestionReportes = () => {
         </div>
 
         <div className="grid gap-4">
+          {/* CORREGIDO: Usar el array filtrado y seguro */}
           {filteredReportes.map((reporte) => (
             <Card key={reporte.id}>
               <CardHeader>
@@ -154,7 +201,8 @@ const GestionReportes = () => {
                   <div className="space-y-1">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <FileText className="h-5 w-5 text-primary" />
-                      {mockProyectos.find(p => p.id === reporte.proyectoId)?.nombre}
+                      {/* CORREGIDO: Usar la función segura getProjectName */}
+                      {getProjectName(reporte.proyectoId)}
                     </CardTitle>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
@@ -172,13 +220,14 @@ const GestionReportes = () => {
             </Card>
           ))}
 
+          {/* CORREGIDO: Usar el array filtrado y seguro */}
           {filteredReportes.length === 0 && (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <FileText className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No hay reportes registrados</h3>
                 <p className="text-muted-foreground mb-4">Cree su primer reporte diario</p>
-                <Button onClick={() => setIsCreateOpen(true)}>
+                <Button onClick={() => handleCreateOpenChange(true)}> {/* CORREGIDO: Usar handler */}
                   <Plus className="h-4 w-4 mr-2" />
                   Crear Reporte
                 </Button>

@@ -31,8 +31,20 @@ import { mockUsuarios, updateUsuarios, Usuario, mockProyectos } from '@/data/moc
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
+// --- FUNCIÓN DE AYUDA SEGURA ---
+// Para obtener el nombre del proyecto sin errores
+const getProjectName = (proyectoId?: number) => {
+  if (!proyectoId || !Array.isArray(mockProyectos)) {
+    return '-';
+  }
+  const proyecto = mockProyectos.find(p => p.id === proyectoId);
+  return proyecto ? proyecto.nombre : '-';
+};
+// --- FIN FUNCIÓN DE AYUDA ---
+
 const GestionUsuarios = () => {
-  const [usuarios, setUsuarios] = useState(mockUsuarios);
+  // CORREGIDO: Asegurar que el estado inicial siempre sea un array
+  const [usuarios, setUsuarios] = useState(mockUsuarios || []);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -42,12 +54,13 @@ const GestionUsuarios = () => {
     rol: '',
     username: '',
     password: '',
-    proyectoAsignadoId: '',
+    proyectoAsignadoId: '', // '' es válido para el placeholder inicial
   });
 
-  const filteredUsuarios = usuarios.filter(u => 
-    u.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.username.toLowerCase().includes(searchTerm.toLowerCase())
+  // CORREGIDO: Asegurar que 'usuarios' sea un array antes de filtrar
+  const filteredUsuarios = (usuarios || []).filter(u =>
+    (u.nombre && u.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (u.username && u.username.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const resetForm = () => {
@@ -60,39 +73,68 @@ const GestionUsuarios = () => {
     });
   };
 
+  // --- CONTROLADORES DE MODAL (PARA LIMPIEZA DE ESTADO) ---
+  const handleCreateOpenChange = (open: boolean) => {
+    if (!open) {
+      resetForm();
+    }
+    setIsCreateOpen(open);
+  };
+
+  const handleEditOpenChange = (open: boolean) => {
+    if (!open) {
+      setEditingUser(null);
+      resetForm();
+    }
+    setIsEditOpen(open);
+  };
+  // --- FIN DE CONTROLADORES ---
+
   const handleCreate = () => {
     if (!formData.nombre || !formData.rol || !formData.username || !formData.password) {
       toast.error('Por favor complete todos los campos requeridos');
       return;
     }
 
+    // CORREGIDO: Cálculo de ID más seguro
+    const currentUsuarios = usuarios || [];
+    const newId = currentUsuarios.length > 0 ? Math.max(...currentUsuarios.map(u => u.id)) + 1 : 1;
+
+    // CORREGIDO: Interpretar 'none' o '' como undefined
+    const proyectoIdInt = formData.proyectoAsignadoId && formData.proyectoAsignadoId !== 'none'
+      ? parseInt(formData.proyectoAsignadoId)
+      : undefined;
+
     const newUser: Usuario = {
-      id: Math.max(...usuarios.map(u => u.id)) + 1,
+      id: newId,
       nombre: formData.nombre,
       rol: formData.rol,
       username: formData.username,
       password: formData.password,
-      proyectoAsignadoId: formData.proyectoAsignadoId ? parseInt(formData.proyectoAsignadoId) : undefined,
+      proyectoAsignadoId: proyectoIdInt, // Usar valor interpretado
     };
 
-    const newUsuarios = [...usuarios, newUser];
+    const newUsuarios = [...currentUsuarios, newUser];
     setUsuarios(newUsuarios);
-    updateUsuarios(newUsuarios);
-    setIsCreateOpen(false);
-    resetForm();
+    if (typeof updateUsuarios === 'function') {
+      updateUsuarios(newUsuarios);
+    }
+    handleCreateOpenChange(false); // Usar handler para cerrar y limpiar
     toast.success('Usuario creado exitosamente');
   };
 
   const handleEdit = (user: Usuario) => {
+    if (!user) return;
     setEditingUser(user);
     setFormData({
-      nombre: user.nombre,
-      rol: user.rol,
-      username: user.username,
-      password: user.password,
-      proyectoAsignadoId: user.proyectoAsignadoId?.toString() || '',
+      nombre: user.nombre || '',
+      rol: user.rol || '',
+      username: user.username || '',
+      password: '', // Empezar vacío para lógica de "no cambiar"
+      // CORREGIDO: Usar 'none' si no hay ID, o el ID como string
+      proyectoAsignadoId: user.proyectoAsignadoId?.toString() || 'none',
     });
-    setIsEditOpen(true);
+    handleEditOpenChange(true); // Usar handler para abrir
   };
 
   const handleUpdate = () => {
@@ -101,35 +143,57 @@ const GestionUsuarios = () => {
       return;
     }
 
-    const updatedUsuarios = usuarios.map(u =>
+    // CORREGIDO: Interpretar 'none' o '' como undefined
+    const proyectoIdInt = formData.proyectoAsignadoId && formData.proyectoAsignadoId !== 'none'
+      ? parseInt(formData.proyectoAsignadoId)
+      : undefined;
+
+    const updatedUsuarios = (usuarios || []).map(u =>
       u.id === editingUser.id
         ? {
-            ...u,
-            nombre: formData.nombre,
-            rol: formData.rol,
-            username: formData.username,
-            password: formData.password || u.password,
-            proyectoAsignadoId: formData.proyectoAsignadoId ? parseInt(formData.proyectoAsignadoId) : undefined,
-          }
+          ...u,
+          nombre: formData.nombre,
+          rol: formData.rol,
+          username: formData.username,
+          password: formData.password || u.password,
+          proyectoAsignadoId: proyectoIdInt, // Usar valor interpretado
+        }
         : u
     );
 
     setUsuarios(updatedUsuarios);
-    updateUsuarios(updatedUsuarios);
-    setIsEditOpen(false);
-    setEditingUser(null);
-    resetForm();
+    if (typeof updateUsuarios === 'function') {
+      updateUsuarios(updatedUsuarios);
+    }
+    handleEditOpenChange(false); // Usar handler para cerrar y limpiar
     toast.success('Usuario actualizado exitosamente');
   };
 
   const handleDelete = (id: number) => {
+    if (editingUser && editingUser.id === id) {
+      handleEditOpenChange(false); // Cerrar modal si se borra el usuario en edición
+    }
+
     if (window.confirm('¿Está seguro de eliminar este usuario?')) {
-      const newUsuarios = usuarios.filter(u => u.id !== id);
+      const newUsuarios = (usuarios || []).filter(u => u.id !== id);
       setUsuarios(newUsuarios);
-      updateUsuarios(newUsuarios);
+      if (typeof updateUsuarios === 'function') {
+        updateUsuarios(newUsuarios);
+      }
       toast.success('Usuario eliminado exitosamente');
     }
   };
+
+  // --- RENDERIZADOR DEFENSIVO DE PROYECTOS ---
+  const renderProjectOptions = () => {
+    if (!Array.isArray(mockProyectos)) {
+      return <SelectItem value="loading" disabled>Cargando proyectos...</SelectItem>;
+    }
+    return mockProyectos.map(p => (
+      <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
+    ));
+  };
+  // --- FIN RENDERIZADOR ---
 
   return (
     <DashboardLayout>
@@ -139,7 +203,9 @@ const GestionUsuarios = () => {
             <h1 className="text-3xl font-bold text-foreground mb-2">Gestión de Usuarios</h1>
             <p className="text-muted-foreground">Administre los usuarios del sistema</p>
           </div>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+
+          {/* CORREGIDO: Usar onOpenChange para limpieza de estado */}
+          <Dialog open={isCreateOpen} onOpenChange={handleCreateOpenChange}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
@@ -199,24 +265,24 @@ const GestionUsuarios = () => {
                 </div>
                 <div>
                   <Label htmlFor="proyecto">Proyecto Asignado (Opcional)</Label>
-                  <Select 
-                    value={formData.proyectoAsignadoId} 
+                  <Select
+                    value={formData.proyectoAsignadoId}
                     onValueChange={(value) => setFormData({ ...formData, proyectoAsignadoId: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccione un proyecto" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Ninguno</SelectItem>
-                      {mockProyectos.map(p => (
-                        <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-                      ))}
+                      {/* CORREGIDO: El valor no puede ser un string vacío */}
+                      <SelectItem value="none">Ninguno</SelectItem>
+                      {renderProjectOptions()}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
+                {/* CORREGIDO: Usar handler para cerrar */}
+                <Button variant="outline" onClick={() => handleCreateOpenChange(false)}>Cancelar</Button>
                 <Button onClick={handleCreate}>Crear Usuario</Button>
               </DialogFooter>
             </DialogContent>
@@ -249,15 +315,15 @@ const GestionUsuarios = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {/* CORREGIDO: Usar filteredUsuarios que es seguro */}
                   {filteredUsuarios.map((usuario) => (
                     <TableRow key={usuario.id}>
                       <TableCell className="font-medium">{usuario.nombre}</TableCell>
                       <TableCell>{usuario.username}</TableCell>
                       <TableCell>{usuario.rol}</TableCell>
                       <TableCell>
-                        {usuario.proyectoAsignadoId 
-                          ? mockProyectos.find(p => p.id === usuario.proyectoAsignadoId)?.nombre 
-                          : '-'}
+                        {/* CORREGIDO: Usar función de ayuda segura */}
+                        {getProjectName(usuario.proyectoAsignadoId)}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -285,7 +351,8 @@ const GestionUsuarios = () => {
           </CardContent>
         </Card>
 
-        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        {/* CORREGIDO: Usar onOpenChange para limpieza de estado */}
+        <Dialog open={isEditOpen} onOpenChange={handleEditOpenChange}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Editar Usuario</DialogTitle>
@@ -303,7 +370,7 @@ const GestionUsuarios = () => {
                 <Label htmlFor="edit-rol">Rol</Label>
                 <Select value={formData.rol} onValueChange={(value) => setFormData({ ...formData, rol: value })}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Seleccione un rol" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="CEO">CEO</SelectItem>
@@ -339,24 +406,24 @@ const GestionUsuarios = () => {
               </div>
               <div>
                 <Label htmlFor="edit-proyecto">Proyecto Asignado</Label>
-                <Select 
-                  value={formData.proyectoAsignadoId} 
+                <Select
+                  value={formData.proyectoAsignadoId}
                   onValueChange={(value) => setFormData({ ...formData, proyectoAsignadoId: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Seleccione un proyecto" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Ninguno</SelectItem>
-                    {mockProyectos.map(p => (
-                      <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-                    ))}
+                    {/* CORREGIDO: El valor no puede ser un string vacío */}
+                    <SelectItem value="none">Ninguno</SelectItem>
+                    {renderProjectOptions()}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancelar</Button>
+              {/* CORREGIDO: Usar handler para cerrar */}
+              <Button variant="outline" onClick={() => handleEditOpenChange(false)}>Cancelar</Button>
               <Button onClick={handleUpdate}>Guardar Cambios</Button>
             </DialogFooter>
           </DialogContent>
