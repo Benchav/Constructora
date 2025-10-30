@@ -1,5 +1,3 @@
-// Mock Data for Construction ERP
-
 export interface Usuario {
   id: number;
   nombre: string;
