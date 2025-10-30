@@ -139,28 +139,28 @@ const Login = () => {
             <p className="text-xs font-semibold mb-2 text-muted-foreground">Usuarios de prueba (Jerarquía):</p>
             <ul className="text-xs space-y-1 text-muted-foreground">
               {/* Nivel 1: Dirección Ejecutiva */}
-              <li>• CEO: <code className="text-foreground">ceo</code> / <code className="text-foreground">123</code> (Dirección General)</li>
-              <li>• Gerente General: <code className="text-foreground">gerente.luis</code> / <code className="text-foreground">123</code> (Operaciones)</li>
+              <li>1 • CEO: <code className="text-foreground">ceo</code> / <code className="text-foreground">123</code> (Dirección General)</li>
+              <li>2 • Gerente General: <code className="text-foreground">gerente.luis</code> / <code className="text-foreground">123</code> (Operaciones)</li>
               
               {/* Nivel 2: Directores de Área */}
-              <li>• Director Proyectos: <code className="text-foreground">dir.proyectos</code> / <code className="text-foreground">123</code></li>
-              <li>• Director Finanzas: <code className="text-foreground">dir.finanzas</code> / <code className="text-foreground">123</code></li>
-              <li>• Director Comercial: <code className="text-foreground">dir.comercial</code> / <code className="text-foreground">123</code></li>
+              <li>3 • Director Proyectos: <code className="text-foreground">dir.proyectos</code> / <code className="text-foreground">123</code></li>
+              <li>4 • Director Finanzas: <code className="text-foreground">dir.finanzas</code> / <code className="text-foreground">123</code></li>
+              <li>5 • Director Comercial: <code className="text-foreground">dir.comercial</code> / <code className="text-foreground">123</code></li>
               
               {/* Nivel 3: Jefes y Soporte Administrativo */}
-              <li>• Jefe Oficina Técnica: <code className="text-foreground">jefe.tecnica</code> / <code className="text-foreground">123</code></li>
-              <li>• Jefe de Logística: <code className="text-foreground">jefe.logistica</code> / <code className="text-foreground">123</code> (Compras)</li>
-              <li>• RRHH: <code className="text-foreground">rrhh.lucia</code> / <code className="text-foreground">123</code></li>
-              <li>• Asistente Adm: <code className="text-foreground">asist.sara</code> / <code className="text-foreground">123</code></li>
+              <li>6 • Jefe Oficina Técnica: <code className="text-foreground">jefe.tecnica</code> / <code className="text-foreground">123</code></li>
+              <li>7 • Jefe de Logística: <code className="text-foreground">jefe.logistica</code> / <code className="text-foreground">123</code> (Compras)</li>
+              <li>8 • RRHH: <code className="text-foreground">rrhh.lucia</code> / <code className="text-foreground">123</code></li>
+              <li>9 • Asistente Adm: <code className="text-foreground">asist.sara</code> / <code className="text-foreground">123</code></li>
               
               {/* Nivel 4: Supervisión de Campo */}
-              <li>• Jefe de Obra: <code className="text-foreground">jefe.juan</code> / <code className="text-foreground">123</code></li>
-              <li>• Maestro de Obra: <code className="text-foreground">maestro.elena</code> / <code className="text-foreground">123</code></li>
+              <li>10 • Jefe de Obra: <code className="text-foreground">jefe.juan</code> / <code className="text-foreground">123</code></li>
+              <li>11 • Maestro de Obra: <code className="text-foreground">maestro.elena</code> / <code className="text-foreground">123</code></li>
 
               {/* Nivel 5: Roles Operativos */}
-              <li>• Bodeguero: <code className="text-foreground">bodega.pedro</code> / <code className="text-foreground">123</code></li>
-              <li>• Operativo (Albañil): <code className="text-foreground">david.p</code> / <code className="text-foreground">123</code></li>
-              <li>• Operador Maquinaria: <code className="text-foreground">op.ernesto</code> / <code className="text-foreground">123</code></li>
+              <li>12 • Bodeguero: <code className="text-foreground">bodega.pedro</code> / <code className="text-foreground">123</code></li>
+              <li>13 • Operativo (Albañil): <code className="text-foreground">david.p</code> / <code className="text-foreground">123</code></li>
+              <li>14 • Operador Maquinaria: <code className="text-foreground">op.ernesto</code> / <code className="text-foreground">123</code></li>
             </ul>
           </div>
         </CardContent>
