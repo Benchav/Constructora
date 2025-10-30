@@ -30,32 +30,35 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Director Finanzas', 'Director Comercial'] },
+  // Dashboard: Acceso para todos los roles gerenciales/directivos, incluyendo Jefe Oficina Técnica.
+  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Director Finanzas', 'Director Comercial', 'Jefe Oficina Tecnica'] },
+  
   { label: 'Todos los Proyectos', path: '/proyectos', icon: Building2, roles: ['CEO', 'Gerente General', 'Director de Proyectos'] },
   { label: 'Mi Proyecto', path: '/mi-proyecto', icon: HardHat, roles: ['Jefe de Obra', 'Maestro de Obra'] },
-  { label: 'Finanzas', path: '/finanzas', icon: DollarSign, roles: ['CEO', 'Gerente General', 'Director Finanzas', 'Asistente Administrativo'] }, // Asistente Adm. añadido
+  { label: 'Finanzas', path: '/finanzas', icon: DollarSign, roles: ['CEO', 'Gerente General', 'Director Finanzas', 'Asistente Administrativo'] },
   
   // ===========================================================================================
   // MÓDULOS DE COMPRAS Y LOGÍSTICA
   // ===========================================================================================
-  { label: 'Órdenes de Compra', path: '/compras', icon: Truck, roles: ['CEO', 'Gerente General', 'Jefe de Logística'] }, // NUEVO MÓDULO
-  { label: 'Inventario Total', path: '/inventario-total', icon: Package, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Jefe de Logística'] }, // Jefe Logística añadido
+  { label: 'Órdenes de Compra', path: '/compras', icon: Truck, roles: ['CEO', 'Gerente General', 'Jefe de Logística'] },
+  { label: 'Inventario Total', path: '/inventario-total', icon: Package, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Jefe de Logística'] },
   { label: 'Inventario Mi Obra', path: '/inventario', icon: ShoppingCart, roles: ['Jefe de Obra', 'Bodeguero'] },
   
   // ===========================================================================================
   // MÓDULOS DE PROYECTOS/CONSTRUCCIÓN
   // ===========================================================================================
   { label: 'Reportes Diarios', path: '/reportes', icon: ClipboardList, roles: ['Jefe de Obra', 'Maestro de Obra'] },
-  { label: 'Planos y Docs', path: '/planos', icon: FileText, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Jefe Oficina Tecnica', 'Jefe de Obra', 'Maestro de Obra'] },
-  { label: 'Control de Calidad', path: '/calidad', icon: CheckCircle, roles: ['Director de Proyectos', 'Jefe Oficina Tecnica', 'Jefe de Obra'] }, // NUEVO MÓDULO
-  { label: 'Seguridad y EPP', path: '/seguridad', icon: Shield, roles: ['Director de Proyectos', 'Jefe de Obra', 'Maestro de Obra'] }, // NUEVO MÓDULO
+  // Planos y Docs: Añadidos Albañil y Operador de Maquinaria, ya que necesitan consultar la documentación.
+  { label: 'Planos y Docs', path: '/planos', icon: FileText, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Jefe Oficina Tecnica', 'Jefe de Obra', 'Maestro de Obra', 'Albañil', 'Operador de Maquinaria'] },
+  { label: 'Control de Calidad', path: '/calidad', icon: CheckCircle, roles: ['Director de Proyectos', 'Jefe Oficina Tecnica', 'Jefe de Obra'] },
+  { label: 'Seguridad y EPP', path: '/seguridad', icon: Shield, roles: ['Director de Proyectos', 'Jefe de Obra', 'Maestro de Obra'] },
 
   // ===========================================================================================
   // MÓDULOS COMERCIALES Y GENERALES
   // ===========================================================================================
   { label: 'Licitaciones', path: '/licitaciones', icon: Briefcase, roles: ['CEO', 'Gerente General', 'Director Comercial'] },
   { label: 'Solicitudes', path: '/solicitudes', icon: FileStack, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Director Finanzas', 'Jefe de Obra'] },
-  { label: 'Gestión de Personal', path: '/rrhh', icon: Users, roles: ['CEO', 'Gerente General', 'RRHH'] }, // Etiqueta actualizada
+  { label: 'Gestión de Personal', path: '/rrhh', icon: Users, roles: ['CEO', 'Gerente General', 'RRHH'] },
   { label: 'Gestión de Usuarios', path: '/usuarios', icon: UserCog, roles: ['CEO', 'Gerente General'] },
 ];
 

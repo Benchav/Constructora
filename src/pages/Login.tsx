@@ -9,6 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Building2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+// Importar los datos necesarios para la lógica de redirección inmediata
+import { mockUsuarios } from '@/data/mockData'; // Contiene la lista actual de usuarios
+import { Usuario } from '@/data/models'; // Contiene la interfaz Usuario
+
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -16,14 +20,66 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  // Función de lógica de redirección basada en el rol
+  const getRedirectPath = (rol: string): string => {
+    switch (rol) {
+      // ROLES GERENCIALES / EJECUTIVOS (Redirigen al Dashboard general)
+      case 'CEO':
+      case 'Gerente General':
+      case 'Director de Proyectos':
+      case 'Director Finanzas':
+      case 'Director Comercial':
+      case 'Jefe Oficina Tecnica':
+        return '/dashboard';
+      
+      // ROLES DE CAMPO (Redirigen a su proyecto o herramienta principal)
+      case 'Jefe de Obra':
+      case 'Maestro de Obra':
+        return '/mi-proyecto';
+      
+      case 'Bodeguero':
+        return '/inventario'; // Inventario Mi Obra
+      
+      case 'Jefe de Logística':
+        return '/compras'; // Órdenes de Compra
+      
+      // ROLES DE SOPORTE ADMINISTRATIVO
+      case 'RRHH':
+        return '/rrhh';
+      case 'Asistente Administrativo':
+        return '/finanzas'; // Gestión Financiera
+        
+      // ROLES OPERATIVOS (Redirigen a Planos según el requerimiento)
+      case 'Albañil':
+      case 'Operador de Maquinaria':
+        return '/planos';
+      
+      default:
+        return '/dashboard'; 
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
+    // 1. Intenta iniciar sesión (esto actualiza el estado del contexto)
     const success = login(username, password);
+
     if (success) {
-      // Redirigir al dashboard por defecto después de un login exitoso
-      navigate('/dashboard');
+      // 2. Si el login fue exitoso, buscamos el usuario directamente en el mock
+      //    para obtener el rol inmediatamente y realizar la redirección.
+      const foundUser = mockUsuarios.find(
+        (u: Usuario) => u.username === username && u.password === password
+      );
+      
+      if (foundUser) {
+        const path = getRedirectPath(foundUser.rol);
+        navigate(path);
+      } else {
+        // Fallback de seguridad, aunque la función login ya confirmó la existencia
+        navigate('/dashboard'); 
+      }
     } else {
       setError('Usuario o contraseña incorrectos');
     }
@@ -82,12 +138,12 @@ const Login = () => {
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <p className="text-xs font-semibold mb-2 text-muted-foreground">Usuarios de prueba:</p>
             <ul className="text-xs space-y-1 text-muted-foreground">
-              <li>• CEO (Dirección): <code className="text-foreground">ceo</code> / <code className="text-foreground">123</code></li>
-              <li>• Director de Proyectos: <code className="text-foreground">dir.proyectos</code> / <code className="text-foreground">123</code></li>
-              <li>• Jefe de Obra (Campo): <code className="text-foreground">jefe.juan</code> / <code className="text-foreground">123</code></li>
+              <li>• CEO (Dashboard): <code className="text-foreground">ceo</code> / <code className="text-foreground">123</code></li>
+              <li>• Jefe de Obra (Mi Proyecto): <code className="text-foreground">jefe.juan</code> / <code className="text-foreground">123</code></li>
               <li>• Jefe de Logística (Compras): <code className="text-foreground">jefe.logistica</code> / <code className="text-foreground">123</code></li>
               <li>• Bodeguero (Inventario): <code className="text-foreground">bodega.pedro</code> / <code className="text-foreground">123</code></li>
-              <li>• Asistente Administrativo: <code className="text-foreground">asist.sara</code> / <code className="text-foreground">123</code></li>
+              <li>• Operativo (Planos): <code className="text-foreground">david.p</code> / <code className="text-foreground">123</code></li>
+              <li>• Asistente Adm. (Finanzas): <code className="text-foreground">asist.sara</code> / <code className="text-foreground">123</code></li>
             </ul>
           </div>
         </CardContent>
