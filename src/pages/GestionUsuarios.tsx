@@ -1,3 +1,4 @@
+// Copiar y pegar todo el contenido
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,6 +42,25 @@ const getProjectName = (proyectoId?: number) => {
   return proyecto ? proyecto.nombre : '-';
 };
 // --- FIN FUNCIÓN DE AYUDA ---
+
+// NUEVOS ROLES EN EL SISTEMA
+const ROLES = [
+  "CEO",
+  "Gerente General",
+  "Director de Proyectos",
+  "Director Finanzas",
+  "Director Comercial",
+  "Jefe Oficina Tecnica",
+  "Jefe de Logística", // NUEVO
+  "Jefe de Obra",
+  "Maestro de Obra",
+  "Bodeguero",
+  "RRHH",
+  "Asistente Administrativo", // NUEVO
+  "Operador de Maquinaria", // NUEVO
+  "Albañil",
+];
+
 
 const GestionUsuarios = () => {
   // CORREGIDO: Asegurar que el estado inicial siempre sea un array
@@ -195,6 +215,14 @@ const GestionUsuarios = () => {
   };
   // --- FIN RENDERIZADOR ---
 
+  const renderRoleOptions = () => (
+    <>
+      {ROLES.map(rol => (
+        <SelectItem key={rol} value={rol}>{rol}</SelectItem>
+      ))}
+    </>
+  );
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -232,17 +260,8 @@ const GestionUsuarios = () => {
                       <SelectValue placeholder="Seleccione un rol" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="CEO">CEO</SelectItem>
-                      <SelectItem value="Gerente General">Gerente General</SelectItem>
-                      <SelectItem value="Director de Proyectos">Director de Proyectos</SelectItem>
-                      <SelectItem value="Director Finanzas">Director Finanzas</SelectItem>
-                      <SelectItem value="Director Comercial">Director Comercial</SelectItem>
-                      <SelectItem value="Jefe Oficina Tecnica">Jefe Oficina Tecnica</SelectItem>
-                      <SelectItem value="Jefe de Obra">Jefe de Obra</SelectItem>
-                      <SelectItem value="Maestro de Obra">Maestro de Obra</SelectItem>
-                      <SelectItem value="Bodeguero">Bodeguero</SelectItem>
-                      <SelectItem value="RRHH">RRHH</SelectItem>
-                      <SelectItem value="Albañil">Albañil</SelectItem>
+                      {/* NUEVOS ROLES INCLUIDOS */}
+                      {renderRoleOptions()}
                     </SelectContent>
                   </Select>
                 </div>
@@ -373,17 +392,8 @@ const GestionUsuarios = () => {
                     <SelectValue placeholder="Seleccione un rol" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CEO">CEO</SelectItem>
-                    <SelectItem value="Gerente General">Gerente General</SelectItem>
-                    <SelectItem value="Director de Proyectos">Director de Proyectos</SelectItem>
-                    <SelectItem value="Director Finanzas">Director Finanzas</SelectItem>
-                    <SelectItem value="Director Comercial">Director Comercial</SelectItem>
-                    <SelectItem value="Jefe Oficina Tecnica">Jefe Oficina Tecnica</SelectItem>
-                    <SelectItem value="Jefe de Obra">Jefe de Obra</SelectItem>
-                    <SelectItem value="Maestro de Obra">Maestro de Obra</SelectItem>
-                    <SelectItem value="Bodeguero">Bodeguero</SelectItem>
-                    <SelectItem value="RRHH">RRHH</SelectItem>
-                    <SelectItem value="Albañil">Albañil</SelectItem>
+                    {/* NUEVOS ROLES INCLUIDOS */}
+                    {renderRoleOptions()}
                   </SelectContent>
                 </Select>
               </div>

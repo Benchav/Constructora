@@ -1,3 +1,4 @@
+// Copiar y pegar todo el contenido
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -13,7 +14,11 @@ import {
   FileStack,
   ShoppingCart,
   Wallet,
-  UserCog
+  UserCog,
+  Truck, // Nuevo icono para Compras/Logística
+  Shield, // Nuevo icono para Seguridad
+  CheckCircle, // Nuevo icono para Calidad
+  Clipboard
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -28,14 +33,29 @@ const navItems: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Director Finanzas', 'Director Comercial'] },
   { label: 'Todos los Proyectos', path: '/proyectos', icon: Building2, roles: ['CEO', 'Gerente General', 'Director de Proyectos'] },
   { label: 'Mi Proyecto', path: '/mi-proyecto', icon: HardHat, roles: ['Jefe de Obra', 'Maestro de Obra'] },
-  { label: 'Finanzas', path: '/finanzas', icon: DollarSign, roles: ['CEO', 'Gerente General', 'Director Finanzas'] },
-  { label: 'Licitaciones', path: '/licitaciones', icon: Briefcase, roles: ['CEO', 'Gerente General', 'Director Comercial'] },
-  { label: 'RRHH', path: '/rrhh', icon: Users, roles: ['CEO', 'Gerente General', 'RRHH'] },
-  { label: 'Inventario Total', path: '/inventario-total', icon: Package, roles: ['CEO', 'Gerente General', 'Director de Proyectos'] },
+  { label: 'Finanzas', path: '/finanzas', icon: DollarSign, roles: ['CEO', 'Gerente General', 'Director Finanzas', 'Asistente Administrativo'] }, // Asistente Adm. añadido
+  
+  // ===========================================================================================
+  // MÓDULOS DE COMPRAS Y LOGÍSTICA
+  // ===========================================================================================
+  { label: 'Órdenes de Compra', path: '/compras', icon: Truck, roles: ['CEO', 'Gerente General', 'Jefe de Logística'] }, // NUEVO MÓDULO
+  { label: 'Inventario Total', path: '/inventario-total', icon: Package, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Jefe de Logística'] }, // Jefe Logística añadido
   { label: 'Inventario Mi Obra', path: '/inventario', icon: ShoppingCart, roles: ['Jefe de Obra', 'Bodeguero'] },
-  { label: 'Planos', path: '/planos', icon: FileText, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Jefe Oficina Tecnica', 'Jefe de Obra', 'Maestro de Obra'] },
+  
+  // ===========================================================================================
+  // MÓDULOS DE PROYECTOS/CONSTRUCCIÓN
+  // ===========================================================================================
   { label: 'Reportes Diarios', path: '/reportes', icon: ClipboardList, roles: ['Jefe de Obra', 'Maestro de Obra'] },
+  { label: 'Planos y Docs', path: '/planos', icon: FileText, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Jefe Oficina Tecnica', 'Jefe de Obra', 'Maestro de Obra'] },
+  { label: 'Control de Calidad', path: '/calidad', icon: CheckCircle, roles: ['Director de Proyectos', 'Jefe Oficina Tecnica', 'Jefe de Obra'] }, // NUEVO MÓDULO
+  { label: 'Seguridad y EPP', path: '/seguridad', icon: Shield, roles: ['Director de Proyectos', 'Jefe de Obra', 'Maestro de Obra'] }, // NUEVO MÓDULO
+
+  // ===========================================================================================
+  // MÓDULOS COMERCIALES Y GENERALES
+  // ===========================================================================================
+  { label: 'Licitaciones', path: '/licitaciones', icon: Briefcase, roles: ['CEO', 'Gerente General', 'Director Comercial'] },
   { label: 'Solicitudes', path: '/solicitudes', icon: FileStack, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Director Finanzas', 'Jefe de Obra'] },
+  { label: 'Gestión de Personal', path: '/rrhh', icon: Users, roles: ['CEO', 'Gerente General', 'RRHH'] }, // Etiqueta actualizada
   { label: 'Gestión de Usuarios', path: '/usuarios', icon: UserCog, roles: ['CEO', 'Gerente General'] },
 ];
 

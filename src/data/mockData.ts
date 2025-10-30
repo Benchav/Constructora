@@ -1,3 +1,4 @@
+// Copiar y pegar todo el contenido
 export interface Usuario {
   id: number;
   nombre: string;
@@ -86,6 +87,42 @@ export interface SolicitudDinero {
   fecha?: string;
 }
 
+// ====================================================================
+// Nuevas Interfaces Agregadas
+// ====================================================================
+
+export interface OrdenCompra {
+  id: string;
+  proyectoId: number;
+  fechaPedido: string;
+  proveedor: string;
+  items: string; // Resumen de items comprados
+  montoTotal: number;
+  estado: "Pendiente" | "Emitida" | "Recibida" | "Cancelada";
+}
+
+export interface InspeccionCalidad {
+  id: string;
+  proyectoId: number;
+  fecha: string;
+  fase: string; // Ej: Cimentación, Mampostería Nivel 1
+  resultado: "Aprobado" | "Con Observaciones" | "Rechazado";
+  observaciones: string;
+}
+
+export interface IncidenteSeguridad {
+  id: string;
+  proyectoId: number;
+  fecha: string;
+  tipo: "Accidente" | "Incidente" | "Inspección";
+  descripcion: string;
+  responsable: string;
+}
+
+// ====================================================================
+// Datos Mock Actualizados
+// ====================================================================
+
 export let mockUsuarios: Usuario[] = [
   { id: 1, nombre: "Ana Martínez", rol: "CEO", username: "ceo", password: "123" },
   { id: 2, nombre: "Juan Pérez", rol: "Jefe de Obra", username: "jefe.juan", password: "123", proyectoAsignadoId: 100 },
@@ -97,7 +134,11 @@ export let mockUsuarios: Usuario[] = [
   { id: 8, nombre: "Sofia Luna", rol: "Director Comercial", username: "dir.comercial", password: "123" },
   { id: 9, nombre: "Miguel Roca", rol: "Jefe Oficina Tecnica", username: "jefe.tecnica", password: "123" },
   { id: 10, nombre: "Luis Vega", rol: "Gerente General", username: "gerente.luis", password: "123" },
-  { id: 11, nombre: "David P.", rol: "Albañil", username: "david.p", password: "123", proyectoAsignadoId: 100 }
+  // NUEVOS ROLES OPERACIONALES/ADMINISTRATIVOS
+  { id: 11, nombre: "Roberto Gómez", rol: "Jefe de Logística", username: "jefe.logistica", password: "123" },
+  { id: 12, nombre: "David P.", rol: "Albañil", username: "david.p", password: "123", proyectoAsignadoId: 100 },
+  { id: 13, nombre: "Sara Nieto", rol: "Asistente Administrativo", username: "asist.sara", password: "123" },
+  { id: 14, nombre: "Ernesto C.", rol: "Operador de Maquinaria", username: "op.ernesto", password: "123", proyectoAsignadoId: 101 }
 ];
 
 export let mockProyectos: Proyecto[] = [
@@ -119,7 +160,8 @@ export let mockEmpleados: Empleado[] = [
   { id: 201, nombre: "María López", puesto: "Armador", proyectoAsignadoId: 100, salario: 1300 },
   { id: 202, nombre: "José Arias", puesto: "Operador Maquinaria", proyectoAsignadoId: 101, salario: 1500 },
   { id: 203, nombre: "Ana Torres", puesto: "Electricista", proyectoAsignadoId: 100, salario: 1400 },
-  { id: 204, nombre: "Luis Morales", puesto: "Plomero", proyectoAsignadoId: 101, salario: 1350 }
+  { id: 204, nombre: "Luis Morales", puesto: "Plomero", proyectoAsignadoId: 101, salario: 1350 },
+  { id: 205, nombre: "Felipe Soto", puesto: "Carpintero de Obra", proyectoAsignadoId: 100, salario: 1450 }
 ];
 
 export let mockFinanzas: Finanza[] = [
@@ -161,6 +203,32 @@ export let mockSolicitudesDinero: SolicitudDinero[] = [
   { id: "sd3", proyectoId: 100, motivo: "Reparación equipo", monto: 3500, estado: "Pendiente", solicitante: "Elena Sol", fecha: "2025-10-25" }
 ];
 
+// ====================================================================
+// Nuevos Datos Mock (Inicializados)
+// ====================================================================
+
+export let mockOrdenesCompra: OrdenCompra[] = [
+  { id: "oc1", proyectoId: 100, fechaPedido: "2025-10-20", proveedor: "Acero Rápido S.A.", items: "15 toneladas de Acero 1/2", montoTotal: 18000, estado: "Recibida" },
+  { id: "oc2", proyectoId: 101, fechaPedido: "2025-10-25", proveedor: "Materiales El Fuerte", items: "200 sacos de Cemento, 5m³ de Grava", montoTotal: 6500, estado: "Emitida" },
+  { id: "oc3", proyectoId: 100, fechaPedido: "2025-10-26", proveedor: "Ferretería Central", items: "Herramientas de mano", montoTotal: 1200, estado: "Pendiente" }
+];
+
+export let mockInspeccionesCalidad: InspeccionCalidad[] = [
+  { id: "ic1", proyectoId: 100, fecha: "2025-10-20", fase: "Cimentación", resultado: "Aprobado", observaciones: "Las dimensiones y el refuerzo cumplen con el plano estructural." },
+  { id: "ic2", proyectoId: 100, fecha: "2025-10-25", fase: "Mampostería Nivel 1", resultado: "Con Observaciones", observaciones: "Se detectó un desnivel de 5mm en el muro del Eje C. Pendiente corrección." },
+  { id: "ic3", proyectoId: 101, fecha: "2025-10-15", fase: "Fundición de Zapatas", resultado: "Aprobado", observaciones: "Resistencia del concreto según lo solicitado." }
+];
+
+export let mockIncidentesSeguridad: IncidenteSeguridad[] = [
+  { id: "is1", proyectoId: 100, fecha: "2025-10-24", tipo: "Incidente", descripcion: "Caída de herramienta desde 3m. No hubo lesionados, se acordonó el área.", responsable: "Jefe de Obra" },
+  { id: "is2", proyectoId: 101, fecha: "2025-10-20", tipo: "Accidente", descripcion: "Corte leve en mano de Operador José Arias al manipular sierra circular (EPP incompleto).", responsable: "Maestro de Obra" },
+  { id: "is3", proyectoId: 100, fecha: "2025-10-26", tipo: "Inspección", descripcion: "Inspección general de andamios. Todo conforme.", responsable: "Jefe de Obra" }
+];
+
+// ====================================================================
+// Funciones de Ayuda (Update Helpers)
+// ====================================================================
+
 // Helper functions to update mock data
 export const updateUsuarios = (newData: Usuario[]) => {
   mockUsuarios = newData;
@@ -200,4 +268,17 @@ export const updateSolicitudesMateriales = (newData: SolicitudMaterial[]) => {
 
 export const updateSolicitudesDinero = (newData: SolicitudDinero[]) => {
   mockSolicitudesDinero = newData;
+};
+
+// NUEVAS funciones de ayuda para mock data
+export const updateOrdenesCompra = (newData: OrdenCompra[]) => {
+  mockOrdenesCompra = newData;
+};
+
+export const updateInspeccionesCalidad = (newData: InspeccionCalidad[]) => {
+  mockInspeccionesCalidad = newData;
+};
+
+export const updateIncidentesSeguridad = (newData: IncidenteSeguridad[]) => {
+  mockIncidentesSeguridad = newData;
 };

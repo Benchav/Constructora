@@ -1,3 +1,4 @@
+// Copiar y pegar todo el contenido
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +22,7 @@ const Login = () => {
     
     const success = login(username, password);
     if (success) {
+      // Redirigir al dashboard por defecto después de un login exitoso
       navigate('/dashboard');
     } else {
       setError('Usuario o contraseña incorrectos');
@@ -76,12 +78,16 @@ const Login = () => {
             </Button>
           </form>
 
+          {/* LISTA DE USUARIOS DE PRUEBA ACTUALIZADA */}
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <p className="text-xs font-semibold mb-2 text-muted-foreground">Usuarios de prueba:</p>
             <ul className="text-xs space-y-1 text-muted-foreground">
-              <li>• CEO: <code className="text-foreground">ceo</code> / <code className="text-foreground">123</code></li>
-              <li>• Jefe de Obra: <code className="text-foreground">jefe.juan</code> / <code className="text-foreground">123</code></li>
-              <li>• Bodeguero: <code className="text-foreground">bodega.pedro</code> / <code className="text-foreground">123</code></li>
+              <li>• CEO (Dirección): <code className="text-foreground">ceo</code> / <code className="text-foreground">123</code></li>
+              <li>• Director de Proyectos: <code className="text-foreground">dir.proyectos</code> / <code className="text-foreground">123</code></li>
+              <li>• Jefe de Obra (Campo): <code className="text-foreground">jefe.juan</code> / <code className="text-foreground">123</code></li>
+              <li>• Jefe de Logística (Compras): <code className="text-foreground">jefe.logistica</code> / <code className="text-foreground">123</code></li>
+              <li>• Bodeguero (Inventario): <code className="text-foreground">bodega.pedro</code> / <code className="text-foreground">123</code></li>
+              <li>• Asistente Administrativo: <code className="text-foreground">asist.sara</code> / <code className="text-foreground">123</code></li>
             </ul>
           </div>
         </CardContent>

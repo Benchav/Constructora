@@ -1,3 +1,4 @@
+// Copiar y pegar todo el contenido
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,6 +19,9 @@ import GestionReportes from "./pages/GestionReportes";
 import MiProyecto from "./pages/MiProyecto";
 import InventarioTotal from "./pages/InventarioTotal";
 import Solicitudes from "./pages/Solicitudes";
+import GestionCompras from "./pages/GestionCompras"; // NUEVA IMPORTACIÓN
+import GestionCalidad from "./pages/GestionCalidad"; // NUEVA IMPORTACIÓN
+import GestionSeguridad from "./pages/GestionSeguridad"; // NUEVA IMPORTACIÓN
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +53,10 @@ const App = () => (
             <Route path="/planos" element={<ProtectedRoute><GestionPlanos /></ProtectedRoute>} />
             <Route path="/reportes" element={<ProtectedRoute><GestionReportes /></ProtectedRoute>} />
             <Route path="/solicitudes" element={<ProtectedRoute><Solicitudes /></ProtectedRoute>} />
+            {/* NUEVAS RUTAS DE GESTIÓN */}
+            <Route path="/compras" element={<ProtectedRoute><GestionCompras /></ProtectedRoute>} />
+            <Route path="/calidad" element={<ProtectedRoute><GestionCalidad /></ProtectedRoute>} />
+            <Route path="/seguridad" element={<ProtectedRoute><GestionSeguridad /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
