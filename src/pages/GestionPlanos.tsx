@@ -1,3 +1,4 @@
+// Copiar y pegar todo el contenido
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockPlanos, updatePlanos, Plano, mockProyectos } from '@/data/mockData';
+// ====================================================================
+// CORRECCIÓN: Importar Plano desde models.ts
+import { Plano } from '@/data/models';
+// CORRECCIÓN: Importar mocks y helpers desde mockData.ts
+import { mockPlanos, updatePlanos, mockProyectos } from '@/data/mockData';
+// ====================================================================
 import { Plus, Pencil, Trash2, Search, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';

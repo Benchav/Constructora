@@ -29,7 +29,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockInspeccionesCalidad, updateInspeccionesCalidad, InspeccionCalidad, mockProyectos } from '@/data/mockData';
+// ====================================================================
+// CORRECCIÓN: Importar la interfaz desde el nuevo models.ts
+import { InspeccionCalidad } from '@/data/models';
+// CORRECCIÓN: Importar datos y helpers mutables desde mockData.ts
+import { mockInspeccionesCalidad, updateInspeccionesCalidad, mockProyectos } from '@/data/mockData';
+// ====================================================================
 import { Plus, Pencil, Trash2, Search, CheckCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -88,7 +93,8 @@ const GestionCalidad = () => {
       proyectoId: parseInt(formData.proyectoId),
       fecha: formData.fecha,
       fase: formData.fase,
-      resultado: formData.resultado as InspeccionCalidad["resultado"],
+      // Se necesita la aserción de tipo aquí ya que InspeccionCalidad se importa de models
+      resultado: formData.resultado as InspeccionCalidad["resultado"], 
       observaciones: formData.observaciones,
     };
 

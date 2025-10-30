@@ -1,3 +1,4 @@
+// Copiar y pegar todo el contenido
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,8 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// CORREGIDO: Asegurarnos de que importamos 'Usuario' si es necesario (aunque no se usa aquí, es buena práctica)
-import { mockReportesDiarios, updateReportesDiarios, ReporteDiario, mockProyectos, Usuario } from '@/data/mockData';
+// ====================================================================
+// CORRECCIÓN: Importar interfaces desde models.ts
+import { ReporteDiario } from '@/data/models';
+// CORRECCIÓN: Importar mocks y helpers desde mockData.ts
+import { mockReportesDiarios, updateReportesDiarios, mockProyectos } from '@/data/mockData';
+// ====================================================================
 import { useAuth } from '@/contexts/AuthContext';
 import { Plus, FileText, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
@@ -79,7 +84,8 @@ const GestionReportes = () => {
     // CORREGIDO: Cálculo de ID más seguro
     const currentReportes = reportes || [];
     const newIdNum = currentReportes.length > 0 
-      ? Math.max(...currentReportes.map(r => parseInt(r.id.substring(1)))) + 1 
+      // Se añade || 0 para manejar el caso de array vacío o ids no numéricos con seguridad
+      ? Math.max(...currentReportes.map(r => parseInt(r.id.substring(1)) || 0)) + 1 
       : 1;
 
     const newReporte: ReporteDiario = {

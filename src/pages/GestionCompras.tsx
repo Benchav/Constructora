@@ -29,7 +29,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from '@/components/ui/textarea';
-import { mockOrdenesCompra, updateOrdenesCompra, OrdenCompra, mockProyectos } from '@/data/mockData';
+// ====================================================================
+// CORRECCIÓN: Importar OrdenCompra desde models.ts
+import { OrdenCompra } from '@/data/models';
+// CORRECCIÓN: Importar datos y helpers mutables desde mockData.ts
+import { mockOrdenesCompra, updateOrdenesCompra, mockProyectos } from '@/data/mockData';
+// ====================================================================
 import { Plus, Pencil, Trash2, Search, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';

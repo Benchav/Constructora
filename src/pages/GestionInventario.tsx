@@ -1,3 +1,4 @@
+// Copiar y pegar todo el contenido
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +21,12 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { mockInventarioObra, updateInventario, InventarioItem } from '@/data/mockData';
+// ====================================================================
+// CORRECCIÓN: Importar InventarioItem desde models.ts
+import { InventarioItem } from '@/data/models'; 
+// CORRECCIÓN: Importar mocks y helpers desde mockData.ts
+import { mockInventarioObra, updateInventario } from '@/data/mockData';
+// ====================================================================
 import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Pencil, Trash2, Search, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
@@ -28,6 +34,7 @@ import { Badge } from '@/components/ui/badge';
 
 const GestionInventario = () => {
   const { user } = useAuth();
+  // InventarioItem es necesaria para el useState
   const [inventario, setInventario] = useState(mockInventarioObra);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -40,7 +47,7 @@ const GestionInventario = () => {
   });
 
   const proyectoAsignado = user?.proyectoAsignadoId;
-  const filteredInventario = inventario
+  const filteredInventario = (inventario || []) // Defensivo
     .filter(i => i.proyectoId === proyectoAsignado)
     .filter(i => i.item.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -59,7 +66,8 @@ const GestionInventario = () => {
     }
 
     const newItem: InventarioItem = {
-      id: Math.max(...inventario.map(i => i.id)) + 1,
+      // Aseguramos que el ID se calcule de forma segura
+      id: Math.max(...(inventario || []).map(i => i.id)) + 1, 
       item: formData.item,
       unidad: formData.unidad,
       stock: parseInt(formData.stock),

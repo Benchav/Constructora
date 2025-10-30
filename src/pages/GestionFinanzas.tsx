@@ -1,3 +1,4 @@
+// Copiar y pegar todo el contenido
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +28,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockFinanzas, updateFinanzas, Finanza, mockProyectos } from '@/data/mockData';
+// ====================================================================
+// CORRECCIÓN: Importar Finanza desde models.ts
+import { Finanza } from '@/data/models';
+// CORRECCIÓN: Importar mocks y helpers desde mockData.ts
+import { mockFinanzas, updateFinanzas, mockProyectos } from '@/data/mockData';
+// ====================================================================
 import { Plus, Pencil, Trash2, Search, TrendingUp, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -74,7 +80,8 @@ const GestionFinanzas = () => {
 
     const newFinanza: Finanza = {
       id: 'f' + (Math.max(...finanzas.map(f => parseInt(f.id.substring(1)))) + 1),
-      tipo: formData.tipo as "Ingreso" | "Costo",
+      // La aserción de tipo es necesaria aquí porque el valor proviene de un string de formulario.
+      tipo: formData.tipo as "Ingreso" | "Costo", 
       proyectoId: parseInt(formData.proyectoId),
       descripcion: formData.descripcion,
       monto: parseFloat(formData.monto),

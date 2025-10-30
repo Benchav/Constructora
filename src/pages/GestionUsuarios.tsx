@@ -28,13 +28,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockUsuarios, updateUsuarios, Usuario, mockProyectos } from '@/data/mockData';
+// ====================================================================
+// CORRECCIÓN: Importar Usuario desde models.ts
+import { Usuario } from '@/data/models';
+// CORRECCIÓN: Importar mocks y helpers desde mockData.ts
+import { mockUsuarios, updateUsuarios, mockProyectos } from '@/data/mockData';
+// ====================================================================
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 // --- FUNCIÓN DE AYUDA SEGURA ---
 // Para obtener el nombre del proyecto sin errores
 const getProjectName = (proyectoId?: number) => {
+  // mockProyectos es importado de mockData.ts
   if (!proyectoId || !Array.isArray(mockProyectos)) {
     return '-';
   }
@@ -66,6 +72,7 @@ const GestionUsuarios = () => {
   // CORREGIDO: Asegurar que el estado inicial siempre sea un array
   const [usuarios, setUsuarios] = useState(mockUsuarios || []);
   const [searchTerm, setSearchTerm] = useState('');
+  // La interfaz Usuario se usa aquí, importada de models.ts
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Usuario | null>(null);

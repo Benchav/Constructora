@@ -29,7 +29,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockIncidentesSeguridad, updateIncidentesSeguridad, IncidenteSeguridad, mockProyectos } from '@/data/mockData';
+// ====================================================================
+// CORRECCIÓN: Importar la interfaz desde models.ts
+import { IncidenteSeguridad } from '@/data/models'; 
+// CORRECCIÓN: Importar datos y helpers mutables desde mockData.ts
+import { mockIncidentesSeguridad, updateIncidentesSeguridad, mockProyectos } from '@/data/mockData';
+// ====================================================================
 import { Plus, Pencil, Trash2, Search, Shield, AlertTriangle, User, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';

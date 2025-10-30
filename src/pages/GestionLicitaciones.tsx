@@ -1,3 +1,4 @@
+// Copiar y pegar todo el contenido
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +28,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockLicitaciones, updateLicitaciones, Licitacion } from '@/data/mockData';
+// ====================================================================
+// CORRECCIÓN: Importar Licitacion desde models.ts
+import { Licitacion } from '@/data/models';
+// CORRECCIÓN: Importar mocks y helpers desde mockData.ts
+import { mockLicitaciones, updateLicitaciones } from '@/data/mockData';
+// ====================================================================
 import { Plus, Pencil, Trash2, Search, Briefcase, Trophy, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -71,7 +77,8 @@ const GestionLicitaciones = () => {
     const newLicitacion: Licitacion = {
       id: 'l' + (Math.max(...licitaciones.map(l => parseInt(l.id.substring(1)))) + 1),
       nombre: formData.nombre,
-      estado: formData.estado,
+      // Se utiliza aserción de tipo ya que el valor viene de un string del Select
+      estado: formData.estado as Licitacion["estado"],
       monto: parseFloat(formData.monto),
       fechaLimite: formData.fechaLimite || undefined,
     };
@@ -106,7 +113,7 @@ const GestionLicitaciones = () => {
         ? {
             ...l,
             nombre: formData.nombre,
-            estado: formData.estado,
+            estado: formData.estado as Licitacion["estado"],
             monto: parseFloat(formData.monto),
             fechaLimite: formData.fechaLimite || undefined,
           }
