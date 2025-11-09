@@ -1,34 +1,140 @@
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { useAuth } from '@/contexts/AuthContext';
-import { mockProyectos, mockInventarioObra, mockEmpleados, mockPlanos } from '@/data/mockData';
-import { MapPin, Users, Package, FileText, TrendingUp } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Proyecto, InventarioItem, Empleado, Plano } from '@/data/models';
+import apiClient from '@/lib/api';
+import { toast } from 'sonner';
+import {
+  MapPin,
+  Users,
+  Package,
+  FileText,
+  TrendingUp,
+  DollarSign
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
 const MiProyecto = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const proyectoId = user?.proyectoAsignadoId;
-  
-  const proyecto = mockProyectos.find(p => p.id === proyectoId);
-  const inventarioProyecto = mockInventarioObra.filter(i => i.proyectoId === proyectoId);
-  const empleadosProyecto = mockEmpleados.filter(e => e.proyectoAsignadoId === proyectoId);
-  const planosProyecto = mockPlanos.filter(p => p.proyectoId === proyectoId);
+  const [proyecto, setProyecto] = useState<Proyecto | null>(null);
+  const [inventario, setInventario] = useState<InventarioItem[]>([]);
+  const [empleados, setEmpleados] = useState<Empleado[]>([]);
+  const [planos, setPlanos] = useState<Plano[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!proyecto) {
+  useEffect(() => {
+    const fetchMiProyecto = async () => {
+      const proyectoId = user?.proyectoAsignadoId;
+
+      if (!proyectoId) {
+        setProyecto(null);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const [proyectoRes, inventarioRes, empleadosRes, planosRes] = await Promise.allSettled([
+          apiClient.get<Proyecto>(`/proyectos/${proyectoId}`),
+          apiClient.get<InventarioItem[]>('/inventario'),
+          apiClient.get<Empleado[]>('/empleados'),
+          apiClient.get<Plano[]>('/planos'),
+        ]);
+
+        // Proyecto principal
+        if (proyectoRes.status === "fulfilled" && proyectoRes.value.data) {
+          setProyecto(proyectoRes.value.data);
+        } else {
+          toast.warning("No se pudo cargar la información del proyecto.");
+          setProyecto(null);
+        }
+
+        // Inventario filtrado
+        if (inventarioRes.status === "fulfilled" && Array.isArray(inventarioRes.value.data)) {
+          setInventario(inventarioRes.value.data.filter(i => i.proyectoId === proyectoId));
+        } else {
+          setInventario([]);
+        }
+
+        // Empleados filtrados
+        if (empleadosRes.status === "fulfilled" && Array.isArray(empleadosRes.value.data)) {
+          setEmpleados(empleadosRes.value.data.filter(e => e.proyectoAsignadoId === proyectoId));
+        } else {
+          setEmpleados([]);
+        }
+
+        // Planos filtrados
+        if (planosRes.status === "fulfilled" && Array.isArray(planosRes.value.data)) {
+          setPlanos(planosRes.value.data.filter(p => p.proyectoId === proyectoId));
+        } else {
+          setPlanos([]);
+        }
+
+        // Si todo falló
+        if (
+          proyectoRes.status === "rejected" &&
+          inventarioRes.status === "rejected" &&
+          empleadosRes.status === "rejected" &&
+          planosRes.status === "rejected"
+        ) {
+          throw new Error("No se pudieron obtener los datos del proyecto.");
+        }
+
+      } catch (err) {
+        console.error("❌ Error al cargar datos del proyecto:", err);
+        toast.error("Error al cargar la información del proyecto.");
+        setError("Error al cargar datos");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) fetchMiProyecto();
+  }, [user]);
+
+  // Estados intermedios
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <p className="text-muted-foreground p-6">Cargando datos de “Mi Proyecto”...</p>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
-          <h2 className="text-2xl font-bold text-foreground mb-2">No tiene proyecto asignado</h2>
-          <p className="text-muted-foreground">Contacte al administrador para que le asigne un proyecto</p>
+          <h2 className="text-2xl font-semibold text-red-500 mb-2">Ocurrió un error</h2>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>Reintentar</Button>
         </div>
       </DashboardLayout>
     );
   }
 
+  if (!proyecto) {
+    return (
+      <DashboardLayout>
+        <div className="text-center py-12">
+          <h2 className="text-3xl font-bold text-foreground mb-2">No tiene proyecto asignado</h2>
+          <p className="text-muted-foreground">
+            Contacte al administrador para que le asigne un proyecto.
+          </p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Vista principal del proyecto
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -37,30 +143,26 @@ const MiProyecto = () => {
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold text-foreground">{proyecto.nombre}</h1>
+                <h1 className="text-3xl font-bold text-foreground">
+                  {proyecto.nombre || "Proyecto sin nombre"}
+                </h1>
                 <Badge variant={proyecto.estado === 'En Curso' ? 'default' : 'secondary'}>
-                  {proyecto.estado}
+                  {proyecto.estado || "Sin estado"}
                 </Badge>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <MapPin className="h-4 w-4" />
-                <span>{proyecto.ubicacion}</span>
+                <span>{proyecto.ubicacion || "Ubicación no especificada"}</span>
               </div>
             </div>
             <div className="flex gap-4">
               <div className="text-center">
                 <p className="text-sm text-muted-foreground">Avance</p>
-                <p className="text-2xl font-bold text-primary">{proyecto.avance}%</p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Presupuesto</p>
-                <p className="text-2xl font-bold text-foreground">
-                  ${(proyecto.presupuesto / 1000000).toFixed(1)}M
-                </p>
+                <p className="text-2xl font-bold text-primary">{proyecto.avance ?? 0}%</p>
               </div>
             </div>
           </div>
-          <Progress value={proyecto.avance} className="mt-4 h-3" />
+          <Progress value={proyecto.avance ?? 0} className="mt-4 h-3" />
         </div>
 
         {/* Resumen de Recursos */}
@@ -73,7 +175,7 @@ const MiProyecto = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-foreground">{empleadosProyecto.length}</p>
+              <p className="text-2xl font-bold text-foreground">{empleados.length}</p>
               <p className="text-xs text-muted-foreground mt-1">empleados activos</p>
             </CardContent>
           </Card>
@@ -86,7 +188,7 @@ const MiProyecto = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-foreground">{inventarioProyecto.length}</p>
+              <p className="text-2xl font-bold text-foreground">{inventario.length}</p>
               <p className="text-xs text-muted-foreground mt-1">tipos de materiales</p>
             </CardContent>
           </Card>
@@ -99,7 +201,7 @@ const MiProyecto = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-foreground">{planosProyecto.length}</p>
+              <p className="text-2xl font-bold text-foreground">{planos.length}</p>
               <p className="text-xs text-muted-foreground mt-1">documentos técnicos</p>
             </CardContent>
           </Card>
@@ -112,8 +214,8 @@ const MiProyecto = () => {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="h-auto py-4 flex flex-col items-center gap-2"
                 onClick={() => navigate('/inventario')}
               >
@@ -121,9 +223,9 @@ const MiProyecto = () => {
                 <span className="font-semibold">Inventario</span>
                 <span className="text-xs text-muted-foreground">Gestionar materiales</span>
               </Button>
-              
-              <Button 
-                variant="outline" 
+
+              <Button
+                variant="outline"
                 className="h-auto py-4 flex flex-col items-center gap-2"
                 onClick={() => navigate('/planos')}
               >
@@ -131,9 +233,9 @@ const MiProyecto = () => {
                 <span className="font-semibold">Planos</span>
                 <span className="text-xs text-muted-foreground">Ver documentación</span>
               </Button>
-              
-              <Button 
-                variant="outline" 
+
+              <Button
+                variant="outline"
                 className="h-auto py-4 flex flex-col items-center gap-2"
                 onClick={() => navigate('/reportes')}
               >
@@ -141,33 +243,16 @@ const MiProyecto = () => {
                 <span className="font-semibold">Reportes</span>
                 <span className="text-xs text-muted-foreground">Registrar avances</span>
               </Button>
-              
-              <Button 
-                variant="outline" 
-                className="h-auto py-4 flex flex-col items-center gap-2"
-                onClick={() => navigate(`/proyecto/${proyectoId}`)}
-              >
-                <MapPin className="h-6 w-6 text-chart-4" />
-                <span className="font-semibold">Ver Detalles</span>
-                <span className="text-xs text-muted-foreground">Información completa</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Personal del Proyecto */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Personal Asignado</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {empleadosProyecto.map((empleado) => (
-                <div key={empleado.id} className="p-4 bg-secondary rounded-lg">
-                  <p className="font-semibold">{empleado.nombre}</p>
-                  <p className="text-sm text-muted-foreground">{empleado.puesto}</p>
-                </div>
-              ))}
+              <Button
+                variant="outline"
+                className="h-auto py-4 flex flex-col items-center gap-2"
+                onClick={() => navigate(`/solicitudes`)}
+              >
+                <DollarSign className="h-6 w-6 text-chart-4" />
+                <span className="font-semibold">Solicitudes</span>
+                <span className="text-xs text-muted-foreground">Pedir material/dinero</span>
+              </Button>
             </div>
           </CardContent>
         </Card>

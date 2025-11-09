@@ -1,6 +1,6 @@
-// Copiar y pegar todo el contenido
+// src/components/DynamicSidebar.tsx
 import { NavLink } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { 
   LayoutDashboard, 
   Building2, 
@@ -13,14 +13,16 @@ import {
   ClipboardList,
   FileStack,
   ShoppingCart,
-  Wallet,
   UserCog,
-  Truck, // Nuevo icono para Compras/Logística
-  Shield, // Nuevo icono para Seguridad
-  CheckCircle, // Nuevo icono para Calidad
-  Clipboard
+  Truck,
+  Shield,
+  CheckCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// 🔧 Función auxiliar para evitar problemas de mayúsculas/tildes
+const normalize = (text?: string) =>
+  (text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
 interface NavItem {
   label: string;
@@ -30,32 +32,17 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  // Dashboard: Acceso para todos los roles gerenciales/directivos, incluyendo Jefe Oficina Técnica.
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Director Finanzas', 'Director Comercial', 'Jefe Oficina Tecnica'] },
-  
   { label: 'Todos los Proyectos', path: '/proyectos', icon: Building2, roles: ['CEO', 'Gerente General', 'Director de Proyectos'] },
   { label: 'Mi Proyecto', path: '/mi-proyecto', icon: HardHat, roles: ['Jefe de Obra', 'Maestro de Obra'] },
   { label: 'Finanzas', path: '/finanzas', icon: DollarSign, roles: ['CEO', 'Gerente General', 'Director Finanzas', 'Asistente Administrativo'] },
-  
-  // ===========================================================================================
-  // MÓDULOS DE COMPRAS Y LOGÍSTICA
-  // ===========================================================================================
   { label: 'Órdenes de Compra', path: '/compras', icon: Truck, roles: ['CEO', 'Gerente General', 'Jefe de Logística'] },
   { label: 'Inventario Total', path: '/inventario-total', icon: Package, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Jefe de Logística'] },
   { label: 'Inventario Mi Obra', path: '/inventario', icon: ShoppingCart, roles: ['Jefe de Obra', 'Bodeguero'] },
-  
-  // ===========================================================================================
-  // MÓDULOS DE PROYECTOS/CONSTRUCCIÓN
-  // ===========================================================================================
   { label: 'Reportes Diarios', path: '/reportes', icon: ClipboardList, roles: ['Jefe de Obra', 'Maestro de Obra'] },
-  // Planos y Docs: Añadidos Albañil y Operador de Maquinaria, ya que necesitan consultar la documentación.
   { label: 'Planos y Docs', path: '/planos', icon: FileText, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Jefe Oficina Tecnica', 'Jefe de Obra', 'Maestro de Obra', 'Albañil', 'Operador de Maquinaria'] },
   { label: 'Control de Calidad', path: '/calidad', icon: CheckCircle, roles: ['Director de Proyectos', 'Jefe Oficina Tecnica', 'Jefe de Obra'] },
   { label: 'Seguridad y EPP', path: '/seguridad', icon: Shield, roles: ['Director de Proyectos', 'Jefe de Obra', 'Maestro de Obra'] },
-
-  // ===========================================================================================
-  // MÓDULOS COMERCIALES Y GENERALES
-  // ===========================================================================================
   { label: 'Licitaciones', path: '/licitaciones', icon: Briefcase, roles: ['CEO', 'Gerente General', 'Director Comercial'] },
   { label: 'Solicitudes', path: '/solicitudes', icon: FileStack, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Director Finanzas', 'Jefe de Obra'] },
   { label: 'Gestión de Personal', path: '/rrhh', icon: Users, roles: ['CEO', 'Gerente General', 'RRHH'] },
@@ -63,17 +50,34 @@ const navItems: NavItem[] = [
 ];
 
 export const DynamicSidebar = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
-  const filteredItems = navItems.filter(item => 
-    item.roles.includes(user?.rol || '')
-  );
+  // ⏳ Evitar que la sidebar desaparezca mientras verificamos sesión
+  if (loading) {
+    return (
+      <aside className="h-full bg-sidebar border-r flex items-center justify-center">
+        <span className="text-sm text-muted-foreground">Cargando menú...</span>
+      </aside>
+    );
+  }
+
+  if (!user) return null; // Si no hay sesión, no mostramos menú
+
+  const userRolNorm = normalize(user.rol);
+
+  // ✅ Si es CEO, mostrar todo
+  const filteredItems =
+    userRolNorm === 'ceo'
+      ? navItems
+      : navItems.filter(item =>
+          item.roles.some(r => normalize(r) === userRolNorm)
+        );
 
   return (
     <aside className="h-full bg-sidebar border-r">
       <div className="p-6">
         <h2 className="text-lg font-semibold text-sidebar-foreground mb-2">Navegación</h2>
-        <p className="text-xs text-muted-foreground">{user?.rol}</p>
+        <p className="text-xs text-muted-foreground capitalize">{user.rol}</p>
       </div>
       
       <nav className="px-3 pb-4">

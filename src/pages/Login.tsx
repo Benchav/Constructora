@@ -1,7 +1,7 @@
-// Copiar y pegar todo el contenido
+// src/pages/Login.tsx
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,79 +9,51 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Building2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-// Importar los datos necesarios para la lógica de redirección inmediata
-import { mockUsuarios } from '@/data/mockData'; // Contiene la lista actual de usuarios
-import { Usuario } from '@/data/models'; // Contiene la interfaz Usuario
+const normalize = (s?: string) => String(s || '').toLowerCase().trim();
+
+const getRedirectPathFromNormalizedRole = (normRole: string): string => {
+  if (!normRole) return '/dashboard';
+  if (['ceo', 'gerente general', 'director de proyectos', 'director finanzas', 'director comercial', 'jefe oficina tecnica'].includes(normRole)) return '/dashboard';
+  if (['jefe de obra', 'maestro de obra'].includes(normRole)) return '/mi-proyecto';
+  if (normRole === 'bodeguero') return '/inventario';
+  if (normRole === 'jefe de logística') return '/compras';
+  if (normRole === 'rrhh') return '/rrhh';
+  if (normRole === 'asistente administrativo') return '/finanzas';
+  if (['albanil', 'operador de maquinaria'].includes(normRole)) return '/planos';
+  return '/dashboard';
+};
 
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || null;
 
-  // Función de lógica de redirección basada en el rol
-  const getRedirectPath = (rol: string): string => {
-    switch (rol) {
-      // ROLES GERENCIALES / EJECUTIVOS (Redirigen al Dashboard general)
-      case 'CEO':
-      case 'Gerente General':
-      case 'Director de Proyectos':
-      case 'Director Finanzas':
-      case 'Director Comercial':
-      case 'Jefe Oficina Tecnica':
-        return '/dashboard';
-      
-      // ROLES DE CAMPO (Redirigen a su proyecto o herramienta principal)
-      case 'Jefe de Obra':
-      case 'Maestro de Obra':
-        return '/mi-proyecto';
-      
-      case 'Bodeguero':
-        return '/inventario'; // Inventario Mi Obra
-      
-      case 'Jefe de Logística':
-        return '/compras'; // Órdenes de Compra
-      
-      // ROLES DE SOPORTE ADMINISTRATIVO
-      case 'RRHH':
-        return '/rrhh';
-      case 'Asistente Administrativo':
-        return '/finanzas'; // Gestión Financiera
-        
-      // ROLES OPERATIVOS (Redirigen a Planos según el requerimiento)
-      case 'Albañil':
-      case 'Operador de Maquinaria':
-        return '/planos';
-      
-      default:
-        return '/dashboard'; 
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    // 1. Intenta iniciar sesión (esto actualiza el estado del contexto)
-    const success = login(username, password);
+    setLoading(true);
 
-    if (success) {
-      // 2. Si el login fue exitoso, buscamos el usuario directamente en el mock
-      //    para obtener el rol inmediatamente y realizar la redirección.
-      const foundUser = mockUsuarios.find(
-        (u: Usuario) => u.username === username && u.password === password
-      );
-      
-      if (foundUser) {
-        const path = getRedirectPath(foundUser.rol);
-        navigate(path);
+    try {
+      const user: any = await login(username, password);
+      if (user) {
+        const rolRaw = user.rol || user.role || user?.perfil || '';
+        const norm = normalize(rolRaw);
+        const path = from || getRedirectPathFromNormalizedRole(norm);
+        navigate(path, { replace: true });
       } else {
-        // Fallback de seguridad, aunque la función login ya confirmó la existencia
-        navigate('/dashboard'); 
+        setError('Usuario o contraseña incorrectos');
       }
-    } else {
-      setError('Usuario o contraseña incorrectos');
+    } catch (err: any) {
+      console.error('Error en login:', err);
+      setError(err.message || 'Usuario o contraseña incorrectos');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -107,6 +79,7 @@ const Login = () => {
                 placeholder="Ingrese su usuario"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                disabled={loading}
                 required
               />
             </div>
@@ -118,6 +91,7 @@ const Login = () => {
                 placeholder="Ingrese su contraseña"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
                 required
               />
             </div>
@@ -129,40 +103,10 @@ const Login = () => {
               </Alert>
             )}
 
-            <Button type="submit" className="w-full" size="lg">
-              Ingresar
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
+              {loading ? 'Ingresando...' : 'Ingresar'}
             </Button>
           </form>
-
-          {/* LISTA DE USUARIOS DE PRUEBA ORGANIZADA POR JERARQUÍA */}
-          <div className="mt-6 p-4 bg-muted rounded-lg">
-            <p className="text-xs font-semibold mb-2 text-muted-foreground">Usuarios de prueba (Jerarquía):</p>
-            <ul className="text-xs space-y-1 text-muted-foreground">
-              {/* Nivel 1: Dirección Ejecutiva */}
-              <li>1 • CEO: <code className="text-foreground">ceo</code> / <code className="text-foreground">123</code> (Dirección General)</li>
-              <li>2 • Gerente General: <code className="text-foreground">gerente.luis</code> / <code className="text-foreground">123</code> (Operaciones)</li>
-              
-              {/* Nivel 2: Directores de Área */}
-              <li>3 • Director Proyectos: <code className="text-foreground">dir.proyectos</code> / <code className="text-foreground">123</code></li>
-              <li>4 • Director Finanzas: <code className="text-foreground">dir.finanzas</code> / <code className="text-foreground">123</code></li>
-              <li>5 • Director Comercial: <code className="text-foreground">dir.comercial</code> / <code className="text-foreground">123</code></li>
-              
-              {/* Nivel 3: Jefes y Soporte Administrativo */}
-              <li>6 • Jefe Oficina Técnica: <code className="text-foreground">jefe.tecnica</code> / <code className="text-foreground">123</code></li>
-              <li>7 • Jefe de Logística: <code className="text-foreground">jefe.logistica</code> / <code className="text-foreground">123</code> (Compras)</li>
-              <li>8 • RRHH: <code className="text-foreground">rrhh.lucia</code> / <code className="text-foreground">123</code></li>
-              <li>9 • Asistente Adm: <code className="text-foreground">asist.sara</code> / <code className="text-foreground">123</code></li>
-              
-              {/* Nivel 4: Supervisión de Campo */}
-              <li>10 • Jefe de Obra: <code className="text-foreground">jefe.juan</code> / <code className="text-foreground">123</code></li>
-              <li>11 • Maestro de Obra: <code className="text-foreground">maestro.elena</code> / <code className="text-foreground">123</code></li>
-
-              {/* Nivel 5: Roles Operativos */}
-              <li>12 • Bodeguero: <code className="text-foreground">bodega.pedro</code> / <code className="text-foreground">123</code></li>
-              <li>13 • Operativo (Albañil): <code className="text-foreground">david.p</code> / <code className="text-foreground">123</code></li>
-              <li>14 • Operador Maquinaria: <code className="text-foreground">op.ernesto</code> / <code className="text-foreground">123</code></li>
-            </ul>
-          </div>
         </CardContent>
       </Card>
     </div>

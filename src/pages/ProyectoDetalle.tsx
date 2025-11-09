@@ -1,56 +1,117 @@
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { useParams } from 'react-router-dom';
-import { 
-  mockProyectos, 
-  mockFinanzas, 
-  mockInventarioObra, 
-  mockEmpleados,
-  mockPlanos,
-  mockSolicitudesMateriales,
-  mockSolicitudesDinero
-} from '@/data/mockData';
-import { MapPin, DollarSign, Users, Package, FileText } from 'lucide-react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useParams, useNavigate } from 'react-router-dom';
+import { Proyecto, Finanza, InventarioItem, Empleado, Plano, SolicitudMaterial, SolicitudDinero } from '@/data/models';
+import apiClient from '@/lib/api';
+import { toast } from 'sonner';
+import { MapPin, DollarSign, Users, Package, FileText, ArrowLeft } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from '@/components/ui/button';
+
+// NOTA: Ya no usamos la interfaz 'ProyectoDetalleData'
+// Cargaremos cada dato en su propio estado.
 
 const ProyectoDetalle = () => {
   const { id } = useParams();
-  const proyectoId = parseInt(id || '0');
-  const proyecto = mockProyectos.find(p => p.id === proyectoId);
+  const navigate = useNavigate();
+  const [proyecto, setProyecto] = useState<Proyecto | null>(null);
+  const [finanzas, setFinanzas] = useState<Finanza[]>([]);
+  const [inventario, setInventario] = useState<InventarioItem[]>([]);
+  const [empleados, setEmpleados] = useState<Empleado[]>([]);
+  const [planos, setPlanos] = useState<Plano[]>([]);
+  const [solicitudesMateriales, setSolicitudesMateriales] = useState<SolicitudMaterial[]>([]);
+  const [solicitudesDinero, setSolicitudesDinero] = useState<SolicitudDinero[]>([]);
+  
+  const [loading, setLoading] = useState(true);
+  
+  // Convertir el ID de la URL a número
+  const proyectoIdNum = Number(id);
 
-  if (!proyecto) {
+  useEffect(() => {
+    if (!id || isNaN(proyectoIdNum)) {
+      toast.error('ID de proyecto no válido');
+      navigate('/proyectos');
+      return;
+    }
+
+    const fetchProyectoDetalle = async () => {
+      setLoading(true);
+      try {
+        // CORREGIDO: Cargar todos los datos desde sus endpoints reales en paralelo
+        // Esto soluciona la "pantalla en blanco"
+        const [
+          proyectoRes,
+          finanzasRes,
+          inventarioRes,
+          empleadosRes,
+          planosRes,
+          solMaterialesRes,
+          solDineroRes
+        ] = await Promise.all([
+          apiClient.get<Proyecto>(`/proyectos/${id}`), // 1. Cargar el proyecto
+          apiClient.get<Finanza[]>('/finanzas'), // 2. Cargar TODAS las finanzas
+          apiClient.get<InventarioItem[]>('/inventario'), // 3. Cargar TODO el inventario
+          apiClient.get<Empleado[]>('/empleados'), // 4. Cargar TODOS los empleados
+          apiClient.get<Plano[]>('/planos'), // 5. Cargar TODOS los planos
+          apiClient.get<SolicitudMaterial[]>('/solicitudesMateriales'), // 6. ...
+          apiClient.get<SolicitudDinero[]>('/solicitudesDinero') // 7. ...
+        ]);
+
+        // Guardar el proyecto principal
+        setProyecto(proyectoRes.data);
+        
+        // CORREGIDO: Filtrar los datos en el frontend
+        setFinanzas(finanzasRes.data.filter(f => f.proyectoId === proyectoIdNum));
+        setInventario(inventarioRes.data.filter(i => i.proyectoId === proyectoIdNum));
+        setEmpleados(empleadosRes.data.filter(e => e.proyectoAsignadoId === proyectoIdNum));
+        setPlanos(planosRes.data.filter(p => p.proyectoId === proyectoIdNum));
+        setSolicitudesMateriales(solMaterialesRes.data.filter(s => s.proyectoId === proyectoIdNum));
+        setSolicitudesDinero(solDineroRes.data.filter(s => s.proyectoId === proyectoIdNum));
+
+      } catch (error) {
+        toast.error('No se pudo cargar el detalle del proyecto');
+        console.error(error);
+        navigate('/proyectos');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProyectoDetalle();
+  }, [id, navigate, proyectoIdNum]); // Asegurarse de incluir las dependencias
+
+  if (loading) {
     return (
       <DashboardLayout>
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold text-foreground">Proyecto no encontrado</h2>
-        </div>
+        <p>Cargando detalle del proyecto...</p>
       </DashboardLayout>
     );
   }
 
-  const finanzasProyecto = mockFinanzas.filter(f => f.proyectoId === proyectoId);
-  const inventarioProyecto = mockInventarioObra.filter(i => i.proyectoId === proyectoId);
-  const empleadosProyecto = mockEmpleados.filter(e => e.proyectoAsignadoId === proyectoId);
-  const planosProyecto = mockPlanos.filter(p => p.proyectoId === proyectoId);
-  const solicitudesMaterialesProyecto = mockSolicitudesMateriales.filter(s => s.proyectoId === proyectoId);
-  const solicitudesDineroProyecto = mockSolicitudesDinero.filter(s => s.proyectoId === proyectoId);
+  // CORREGIDO: Ahora 'proyecto' es el objeto principal
+  if (!proyecto) {
+    return (
+      <DashboardLayout>
+        <p>Proyecto no encontrado.</p>
+      </DashboardLayout>
+    );
+  }
 
-  const totalIngresos = finanzasProyecto.filter(f => f.tipo === 'Ingreso').reduce((sum, f) => sum + f.monto, 0);
-  const totalCostos = finanzasProyecto.filter(f => f.tipo === 'Costo').reduce((sum, f) => sum + f.monto, 0);
+  // CORREGIDO: Calcular totales desde el estado filtrado 'finanzas'
+  const totalIngresos = finanzas.filter(f => f.tipo === 'Ingreso').reduce((sum, f) => sum + f.monto, 0);
+  const totalCostos = finanzas.filter(f => f.tipo === 'Costo').reduce((sum, f) => sum + f.monto, 0);
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        <Button variant="outline" onClick={() => navigate('/proyectos')} className="gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Volver a Proyectos
+        </Button>
+
         {/* Header del Proyecto */}
         <div className="bg-card p-6 rounded-lg border shadow-sm">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
@@ -116,7 +177,7 @@ const ProyectoDetalle = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold text-foreground">{empleadosProyecto.length}</p>
+                  <p className="text-2xl font-bold text-foreground">{empleados.length}</p>
                 </CardContent>
               </Card>
               <Card>
@@ -127,7 +188,7 @@ const ProyectoDetalle = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold text-foreground">{inventarioProyecto.length}</p>
+                  <p className="text-2xl font-bold text-foreground">{inventario.length}</p>
                 </CardContent>
               </Card>
             </div>
@@ -135,13 +196,12 @@ const ProyectoDetalle = () => {
 
           <TabsContent value="finanzas" className="mt-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Movimientos Financieros</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>Movimientos Financieros</CardTitle></CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Fecha</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Descripción</TableHead>
                       <TableHead>Categoría</TableHead>
@@ -149,19 +209,18 @@ const ProyectoDetalle = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {finanzasProyecto.map((f) => (
+                    {finanzas.map((f) => (
                       <TableRow key={f.id}>
+                        <TableCell>{f.fecha}</TableCell>
                         <TableCell>
-                          <Badge variant={f.tipo === 'Ingreso' ? 'default' : 'secondary'}>
-                            {f.tipo}
-                          </Badge>
+                          <Badge variant={f.tipo === 'Ingreso' ? 'default' : 'secondary'}
+                           className={f.tipo === 'Ingreso' ? 'bg-success' : 'bg-destructive'}
+                          >{f.tipo}</Badge>
                         </TableCell>
                         <TableCell>{f.descripcion}</TableCell>
                         <TableCell>{f.categoria || '-'}</TableCell>
-                        <TableCell className="text-right font-bold">
-                          <span className={f.tipo === 'Ingreso' ? 'text-success' : 'text-destructive'}>
-                            ${f.monto.toLocaleString()}
-                          </span>
+                        <TableCell className={`text-right font-bold ${f.tipo === 'Ingreso' ? 'text-success' : 'text-destructive'}`}>
+                          ${f.monto.toLocaleString()}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -171,11 +230,9 @@ const ProyectoDetalle = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="inventario" className="mt-4">
+           <TabsContent value="inventario" className="mt-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Inventario del Proyecto</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>Inventario del Proyecto</CardTitle></CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
@@ -186,7 +243,7 @@ const ProyectoDetalle = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {inventarioProyecto.map((item) => (
+                    {inventario.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.item}</TableCell>
                         <TableCell>{item.unidad}</TableCell>
@@ -201,9 +258,7 @@ const ProyectoDetalle = () => {
 
           <TabsContent value="rrhh" className="mt-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Empleados Asignados</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>Empleados Asignados</CardTitle></CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
@@ -214,7 +269,7 @@ const ProyectoDetalle = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {empleadosProyecto.map((emp) => (
+                    {empleados.map((emp) => (
                       <TableRow key={emp.id}>
                         <TableCell className="font-medium">{emp.nombre}</TableCell>
                         <TableCell>{emp.puesto}</TableCell>
@@ -229,12 +284,10 @@ const ProyectoDetalle = () => {
 
           <TabsContent value="planos" className="mt-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Planos del Proyecto</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>Planos del Proyecto</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {planosProyecto.map((plano) => (
+                  {planos.map((plano) => (
                     <div key={plano.id} className="flex items-center justify-between p-4 bg-secondary rounded-lg">
                       <div className="flex items-center gap-3">
                         <FileText className="h-5 w-5 text-primary" />
@@ -253,9 +306,7 @@ const ProyectoDetalle = () => {
 
           <TabsContent value="solicitudes" className="mt-4 space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Solicitudes de Materiales</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>Solicitudes de Materiales</CardTitle></CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
@@ -267,19 +318,14 @@ const ProyectoDetalle = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {solicitudesMaterialesProyecto.map((sol) => (
+                    {solicitudesMateriales.map((sol) => (
                       <TableRow key={sol.id}>
                         <TableCell className="font-medium">{sol.item}</TableCell>
                         <TableCell>{sol.cantidad}</TableCell>
                         <TableCell>{sol.solicitante}</TableCell>
-                        <TableCell>
-                          <Badge variant={
-                            sol.estado === 'Pendiente' ? 'default' : 
-                            sol.estado === 'Aprobada' ? 'default' : 'destructive'
-                          }>
-                            {sol.estado}
-                          </Badge>
-                        </TableCell>
+                        <TableCell><Badge variant={sol.estado === 'Pendiente' ? 'default' : 'secondary'}
+                         className={sol.estado === 'Pendiente' ? 'bg-warning text-warning-foreground' : (sol.estado === 'Aprobada' ? 'bg-success' : 'bg-destructive')}
+                        >{sol.estado}</Badge></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -288,9 +334,7 @@ const ProyectoDetalle = () => {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Solicitudes de Dinero</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>Solicitudes de Dinero</CardTitle></CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
@@ -302,19 +346,14 @@ const ProyectoDetalle = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {solicitudesDineroProyecto.map((sol) => (
+                    {solicitudesDinero.map((sol) => (
                       <TableRow key={sol.id}>
                         <TableCell className="font-medium">{sol.motivo}</TableCell>
                         <TableCell>${sol.monto.toLocaleString()}</TableCell>
                         <TableCell>{sol.solicitante}</TableCell>
-                        <TableCell>
-                          <Badge variant={
-                            sol.estado === 'Pendiente' ? 'default' : 
-                            sol.estado === 'Aprobada' ? 'default' : 'destructive'
-                          }>
-                            {sol.estado}
-                          </Badge>
-                        </TableCell>
+                        <TableCell><Badge variant={sol.estado === 'Pendiente' ? 'default' : 'secondary'}
+                         className={sol.estado === 'Pendiente' ? 'bg-warning text-warning-foreground' : (sol.estado === 'Aprobada' ? 'bg-success' : 'bg-destructive')}
+                        >{sol.estado}</Badge></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -322,6 +361,7 @@ const ProyectoDetalle = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
         </Tabs>
       </div>
     </DashboardLayout>

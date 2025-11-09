@@ -1,5 +1,5 @@
-// Copiar y pegar todo el contenido
-import { useState } from 'react';
+// src/pages/GestionCalidad.tsx
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription, // Importado para el modal de borrado
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -29,47 +30,108 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// ====================================================================
-// CORRECCIÓN: Importar la interfaz desde el nuevo models.ts
-import { InspeccionCalidad } from '@/data/models';
-// CORRECCIÓN: Importar datos y helpers mutables desde mockData.ts
-import { mockInspeccionesCalidad, updateInspeccionesCalidad, mockProyectos } from '@/data/mockData';
-// ====================================================================
+import { InspeccionCalidad, Proyecto } from '@/data/models'; // Importar ambos modelos
+import apiClient from '@/lib/api'; // Importar API Client
 import { Plus, Pencil, Trash2, Search, CheckCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 
-const getProjectName = (proyectoId: number) => 
-  mockProyectos.find(p => p.id === proyectoId)?.nombre || 'N/A';
+// Definición de tipo para el formulario
+type InspeccionFormData = {
+  proyectoId: string;
+  fecha: string;
+  fase: string;
+  resultado: string;
+  observaciones: string;
+};
 
 const GestionCalidad = () => {
-  const [inspecciones, setInspecciones] = useState(mockInspeccionesCalidad);
+  // --- Estados de Datos (API) ---
+  const [inspecciones, setInspecciones] = useState<InspeccionCalidad[]>([]);
+  const [proyectos, setProyectos] = useState<Proyecto[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // --- Estados de UI (CRUD, Búsqueda) ---
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingInspeccion, setEditingInspeccion] = useState<InspeccionCalidad | null>(null);
-  const [formData, setFormData] = useState({
+
+  // --- Estados para Diálogos ---
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | number | null>(null);
+
+  const initialFormData: InspeccionFormData = {
     proyectoId: '',
     fecha: new Date().toISOString().split('T')[0],
     fase: '',
     resultado: 'Aprobado',
     observaciones: '',
-  });
+  };
+  const [formData, setFormData] = useState<InspeccionFormData>(initialFormData);
 
-  const filteredInspecciones = inspecciones.filter(i => 
-    i.fase.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    i.observaciones.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    getProjectName(i.proyectoId).toLowerCase().includes(searchTerm.toLowerCase())
+  // --- Carga de Datos (API) ---
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [inspeccionesRes, proyectosRes] = await Promise.all([
+          apiClient.get<InspeccionCalidad[]>('/inspeccionesCalidad'),
+          apiClient.get<Proyecto[]>('/proyectos'), // Para el dropdown
+        ]);
+        
+        setInspecciones(Array.isArray(inspeccionesRes.data) ? inspeccionesRes.data : []);
+        setProyectos(Array.isArray(proyectosRes.data) ? proyectosRes.data : []);
+
+      } catch (error) {
+        toast.error('No se pudieron cargar los datos');
+        console.error("Error al cargar datos:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // --- Helper (movido adentro para acceder al estado 'proyectos') ---
+  const getProjectName = (proyectoId: number) => {
+    if (!proyectos || proyectos.length === 0) return 'N/A';
+    return proyectos.find(p => p.id === proyectoId)?.nombre || 'N/A';
+  }
+
+  // --- Lógica de UI (Filtros, KPIs) ---
+  const filteredInspecciones = inspecciones.filter(i =>
+    (i.fase?.toLowerCase() ?? '').includes(searchTerm.toLowerCase()) ||
+    (i.observaciones?.toLowerCase() ?? '').includes(searchTerm.toLowerCase()) ||
+    (getProjectName(i.proyectoId)?.toLowerCase() ?? '').includes(searchTerm.toLowerCase())
   );
 
+  const resultadosCriticos = inspecciones.filter(i => i.resultado !== 'Aprobado').length;
+  const totalAprobadas = inspecciones.filter(i => i.resultado === 'Aprobado').length;
+
+  const renderResultadoBadge = (resultado: InspeccionCalidad['resultado']) => {
+    let variant: 'default' | 'destructive' | 'outline' = 'outline';
+    let className = '';
+
+    switch (resultado) {
+      case 'Aprobado':
+        variant = 'default';
+        className = 'bg-success text-success-foreground hover:bg-success/80';
+        break;
+      case 'Con Observaciones':
+        variant = 'default';
+        className = 'bg-warning text-warning-foreground hover:bg-warning/80';
+        break;
+      case 'Rechazado':
+        variant = 'destructive';
+        break;
+    }
+    return <Badge variant={variant} className={className}>{resultado}</Badge>;
+  };
+
   const resetForm = () => {
-    setFormData({
-      proyectoId: '',
-      fecha: new Date().toISOString().split('T')[0],
-      fase: '',
-      resultado: 'Aprobado',
-      observaciones: '',
-    });
+    setFormData(initialFormData);
+    setEditingInspeccion(null);
   };
 
   const handleCreateOpenChange = (open: boolean) => {
@@ -82,34 +144,38 @@ const GestionCalidad = () => {
     setIsEditOpen(open);
   };
 
-  const handleCreate = () => {
+  // --- Lógica CRUD (API) ---
+
+  const handleCreate = async () => {
     if (!formData.proyectoId || !formData.fase || !formData.observaciones) {
       toast.error('Por favor complete todos los campos requeridos');
       return;
     }
 
-    const newInspeccion: InspeccionCalidad = {
-      id: 'ic' + (Math.max(...inspecciones.map(i => parseInt(i.id.substring(2)) || 0)) + 1),
+    const newInspeccionPayload = {
       proyectoId: parseInt(formData.proyectoId),
       fecha: formData.fecha,
       fase: formData.fase,
-      // Se necesita la aserción de tipo aquí ya que InspeccionCalidad se importa de models
-      resultado: formData.resultado as InspeccionCalidad["resultado"], 
+      resultado: formData.resultado as InspeccionCalidad["resultado"],
       observaciones: formData.observaciones,
     };
 
-    const newInspecciones = [...inspecciones, newInspeccion];
-    setInspecciones(newInspecciones);
-    updateInspeccionesCalidad(newInspecciones);
-    handleCreateOpenChange(false);
-    toast.success('Inspección de Calidad registrada exitosamente');
+    try {
+      const res = await apiClient.post<InspeccionCalidad>('/inspeccionesCalidad', newInspeccionPayload);
+      setInspecciones([...inspecciones, res.data]);
+      handleCreateOpenChange(false);
+      toast.success('Inspección de Calidad registrada exitosamente');
+    } catch (error) {
+      toast.error('Error al registrar la inspección');
+      console.error(error);
+    }
   };
 
   const handleEdit = (inspeccion: InspeccionCalidad) => {
     setEditingInspeccion(inspeccion);
     setFormData({
-      proyectoId: inspeccion.proyectoId.toString(),
-      fecha: inspeccion.fecha,
+      proyectoId: String(inspeccion.proyectoId),
+      fecha: inspeccion.fecha ? inspeccion.fecha.split('T')[0] : new Date().toISOString().split('T')[0],
       fase: inspeccion.fase,
       resultado: inspeccion.resultado,
       observaciones: inspeccion.observaciones,
@@ -117,62 +183,114 @@ const GestionCalidad = () => {
     handleEditOpenChange(true);
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editingInspeccion || !formData.proyectoId || !formData.fase || !formData.observaciones) {
       toast.error('Por favor complete todos los campos requeridos');
       return;
     }
 
-    const updatedInspecciones = inspecciones.map(i =>
-      i.id === editingInspeccion.id
-        ? {
-            ...i,
-            proyectoId: parseInt(formData.proyectoId),
-            fecha: formData.fecha,
-            fase: formData.fase,
-            resultado: formData.resultado as InspeccionCalidad["resultado"],
-            observaciones: formData.observaciones,
-          }
-        : i
-    );
+    const updatedInspeccionPayload = {
+      proyectoId: parseInt(formData.proyectoId),
+      fecha: formData.fecha,
+      fase: formData.fase,
+      resultado: formData.resultado as InspeccionCalidad["resultado"],
+      observaciones: formData.observaciones,
+    };
 
-    setInspecciones(updatedInspecciones);
-    updateInspeccionesCalidad(updatedInspecciones);
-    handleEditOpenChange(false);
-    toast.success('Inspección de Calidad actualizada exitosamente');
+    try {
+      const res = await apiClient.put<InspeccionCalidad>(`/inspeccionesCalidad/${editingInspeccion.id}`, updatedInspeccionPayload);
+      setInspecciones(inspecciones.map(i => (i.id === editingInspeccion.id ? res.data : i)));
+      handleEditOpenChange(false);
+      toast.success('Inspección de Calidad actualizada exitosamente');
+    } catch (error) {
+      toast.error('Error al actualizar la inspección');
+      console.error(error);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('¿Está seguro de eliminar esta Inspección de Calidad?')) {
-      const newInspecciones = inspecciones.filter(i => i.id !== id);
-      setInspecciones(newInspecciones);
-      updateInspeccionesCalidad(newInspecciones);
+  const openDeleteDialog = (id: string | number) => {
+    setDeletingId(id);
+    setIsDeleteOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deletingId) return;
+
+    try {
+      await apiClient.delete(`/inspeccionesCalidad/${deletingId}`);
+      setInspecciones(inspecciones.filter(i => i.id !== deletingId));
       toast.success('Inspección de Calidad eliminada exitosamente');
+    } catch (error) {
+      toast.error('Error al eliminar la inspección');
+    } finally {
+      setIsDeleteOpen(false);
+      setDeletingId(null);
     }
   };
+  
+  // Componente de formulario reutilizable
+  const InspeccionForm = () => (
+     <div className="space-y-4">
+        <div>
+          <Label htmlFor="proyecto">Proyecto</Label>
+          <Select value={formData.proyectoId} onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccione proyecto" />
+            </SelectTrigger>
+            <SelectContent>
+              {/* Usar estado 'proyectos' de API */}
+              {proyectos.map(p => (
+                <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="fase">Fase de Inspección</Label>
+          <Input
+            id="fase"
+            value={formData.fase}
+            onChange={(e) => setFormData({ ...formData, fase: e.target.value })}
+            placeholder="Ej: Fundición de Losa Nivel 2"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="fecha">Fecha</Label>
+              <Input
+                id="fecha"
+                type="date"
+                value={formData.fecha}
+                onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="resultado">Resultado</Label>
+              <Select value={formData.resultado} onValueChange={(value) => setFormData({ ...formData, resultado: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Aprobado">Aprobado</SelectItem>
+                  <SelectItem value="Con Observaciones">Con Observaciones</SelectItem>
+                  <SelectItem value="Rechazado">Rechazado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+        </div>
+        <div>
+          <Label htmlFor="observaciones">Observaciones / Detalles</Label>
+          <Textarea
+            id="observaciones"
+            value={formData.observaciones}
+            onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
+            placeholder="Describa los hallazgos y el cumplimiento de especificaciones."
+            rows={4}
+          />
+        </div>
+      </div>
+  );
 
-  const resultadosCriticos = inspecciones.filter(i => i.resultado !== 'Aprobado').length;
-  const totalAprobadas = inspecciones.filter(i => i.resultado === 'Aprobado').length;
-
-  const renderResultadoBadge = (resultado: InspeccionCalidad['resultado']) => {
-    let variant: 'default' | 'destructive' | 'outline' = 'outline';
-    let className = '';
-
-    switch (resultado) {
-      case 'Aprobado':
-        variant = 'default';
-        className = 'bg-success text-success-foreground';
-        break;
-      case 'Con Observaciones':
-        variant = 'default';
-        className = 'bg-warning text-warning-foreground';
-        break;
-      case 'Rechazado':
-        variant = 'destructive';
-        break;
-    }
-    return <Badge variant={variant} className={className}>{resultado}</Badge>;
-  };
 
   return (
     <DashboardLayout>
@@ -193,64 +311,7 @@ const GestionCalidad = () => {
               <DialogHeader>
                 <DialogTitle>Registrar Nueva Inspección</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="proyecto">Proyecto</Label>
-                  <Select value={formData.proyectoId} onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione proyecto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockProyectos.map(p => (
-                        <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="fase">Fase de Inspección</Label>
-                  <Input
-                    id="fase"
-                    value={formData.fase}
-                    onChange={(e) => setFormData({ ...formData, fase: e.target.value })}
-                    placeholder="Ej: Fundición de Losa Nivel 2"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <Label htmlFor="fecha">Fecha</Label>
-                        <Input
-                            id="fecha"
-                            type="date"
-                            value={formData.fecha}
-                            onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-                        />
-                    </div>
-                    <div>
-                        <Label htmlFor="resultado">Resultado</Label>
-                        <Select value={formData.resultado} onValueChange={(value) => setFormData({ ...formData, resultado: value })}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Aprobado">Aprobado</SelectItem>
-                                <SelectItem value="Con Observaciones">Con Observaciones</SelectItem>
-                                <SelectItem value="Rechazado">Rechazado</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <div>
-                  <Label htmlFor="observaciones">Observaciones / Detalles</Label>
-                  <Textarea
-                    id="observaciones"
-                    value={formData.observaciones}
-                    onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                    placeholder="Describa los hallazgos y el cumplimiento de especificaciones."
-                    rows={4}
-                  />
-                </div>
-              </div>
+              <InspeccionForm />
               <DialogFooter>
                 <Button variant="outline" onClick={() => handleCreateOpenChange(false)}>Cancelar</Button>
                 <Button onClick={handleCreate}>Registrar Inspección</Button>
@@ -299,120 +360,87 @@ const GestionCalidad = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Proyecto</TableHead>
-                    <TableHead>Fase</TableHead>
-                    <TableHead>Resultado</TableHead>
-                    <TableHead className='w-1/3'>Observaciones</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredInspecciones.map((i) => (
-                    <TableRow key={i.id}>
-                      <TableCell>{i.fecha}</TableCell>
-                      <TableCell>{getProjectName(i.proyectoId)}</TableCell>
-                      <TableCell className="font-medium">{i.fase}</TableCell>
-                      <TableCell>{renderResultadoBadge(i.resultado)}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-xs truncate">{i.observaciones}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleEdit(i)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            onClick={() => handleDelete(i.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+            {loading ? (
+              <p>Cargando inspecciones...</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Proyecto</TableHead>
+                      <TableHead>Fase</TableHead>
+                      <TableHead>Resultado</TableHead>
+                      <TableHead className='w-1/3'>Observaciones</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInspecciones.map((i) => (
+                      <TableRow key={i.id}>
+                        <TableCell>{i.fecha ? new Date(i.fecha).toLocaleDateString('es-ES') : "N/A"}</TableCell>
+                        <TableCell>{getProjectName(i.proyectoId)}</TableCell>
+                        <TableCell className="font-medium">{i.fase}</TableCell>
+                        <TableCell>{renderResultadoBadge(i.resultado)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-xs truncate" title={i.observaciones}>{i.observaciones}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleEdit(i)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              onClick={() => openDeleteDialog(i.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Modal de Edición (Repetido de Creación con ajustes) */}
+        {/* Modal de Edición */}
         <Dialog open={isEditOpen} onOpenChange={handleEditOpenChange}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Editar Inspección</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                  <Label htmlFor="edit-proyecto">Proyecto</Label>
-                  <Select value={formData.proyectoId} onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockProyectos.map(p => (
-                        <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="edit-fase">Fase de Inspección</Label>
-                  <Input
-                    id="edit-fase"
-                    value={formData.fase}
-                    onChange={(e) => setFormData({ ...formData, fase: e.target.value })}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <Label htmlFor="edit-fecha">Fecha</Label>
-                        <Input
-                            id="edit-fecha"
-                            type="date"
-                            value={formData.fecha}
-                            onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-                        />
-                    </div>
-                    <div>
-                        <Label htmlFor="edit-resultado">Resultado</Label>
-                        <Select value={formData.resultado} onValueChange={(value) => setFormData({ ...formData, resultado: value })}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Aprobado">Aprobado</SelectItem>
-                                <SelectItem value="Con Observaciones">Con Observaciones</SelectItem>
-                                <SelectItem value="Rechazado">Rechazado</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <div>
-                  <Label htmlFor="edit-observaciones">Observaciones / Detalles</Label>
-                  <Textarea
-                    id="edit-observaciones"
-                    value={formData.observaciones}
-                    onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                    rows={4}
-                  />
-                </div>
-            </div>
+            <InspeccionForm />
             <DialogFooter>
               <Button variant="outline" onClick={() => handleEditOpenChange(false)}>Cancelar</Button>
               <Button onClick={handleUpdate}>Guardar Cambios</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        
+        {/* Modal de Confirmar Borrado */}
+        <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>¿Está seguro?</DialogTitle>
+              <DialogDescription>
+                Esta acción no se puede deshacer. Esto eliminará permanentemente
+                el registro de la inspección.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Cancelar</Button>
+              <Button variant="destructive" onClick={handleDelete}>Eliminar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </DashboardLayout>
   );

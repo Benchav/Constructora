@@ -1,5 +1,5 @@
-// Copiar y pegar todo el contenido
-import { useState } from 'react';
+// src/pages/GestionLicitaciones.tsx
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription, // Importado para el modal de borrado
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -28,67 +29,109 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// ====================================================================
-// CORRECCIÓN: Importar Licitacion desde models.ts
-import { Licitacion } from '@/data/models';
-// CORRECCIÓN: Importar mocks y helpers desde mockData.ts
-import { mockLicitaciones, updateLicitaciones } from '@/data/mockData';
-// ====================================================================
+import { Licitacion } from '@/data/models'; // Importar modelo
+import apiClient from '@/lib/api'; // Importar API Client
 import { Plus, Pencil, Trash2, Search, Briefcase, Trophy, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 
+// Definición de tipo para el formulario
+type LicitacionFormData = {
+  nombre: string;
+  estado: string;
+  monto: string;
+  fechaLimite: string;
+};
+
 const GestionLicitaciones = () => {
-  const [licitaciones, setLicitaciones] = useState(mockLicitaciones);
+  // --- Estados de Datos (API) ---
+  const [licitaciones, setLicitaciones] = useState<Licitacion[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // --- Estados de UI (CRUD, Búsqueda) ---
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingLicitacion, setEditingLicitacion] = useState<Licitacion | null>(null);
-  const [formData, setFormData] = useState({
+
+  // --- Estados para Diálogos ---
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | number | null>(null);
+
+  const initialFormData: LicitacionFormData = {
     nombre: '',
-    estado: '',
+    estado: 'En Preparacion', // Estado por defecto
     monto: '',
     fechaLimite: '',
-  });
+  };
+  const [formData, setFormData] = useState<LicitacionFormData>(initialFormData);
 
-  const filteredLicitaciones = licitaciones.filter(l => 
-    l.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+  // --- Carga de Datos (API) ---
+  useEffect(() => {
+    const fetchLicitaciones = async () => {
+      setLoading(true);
+      try {
+        const res = await apiClient.get<Licitacion[]>('/licitaciones');
+        setLicitaciones(Array.isArray(res.data) ? res.data : []);
+      } catch (error) {
+        toast.error('No se pudieron cargar las licitaciones');
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLicitaciones();
+  }, []);
+
+  // --- Lógica de UI (Filtros, KPIs) ---
+  const filteredLicitaciones = licitaciones.filter(l =>
+    (l.nombre?.toLowerCase() ?? '').includes(searchTerm.toLowerCase())
   );
 
   const ganadas = licitaciones.filter(l => l.estado === 'Ganada').length;
   const presentadas = licitaciones.filter(l => l.estado === 'Presentada').length;
   const enPreparacion = licitaciones.filter(l => l.estado === 'En Preparacion').length;
 
+  // --- Helpers ---
   const resetForm = () => {
-    setFormData({
-      nombre: '',
-      estado: '',
-      monto: '',
-      fechaLimite: '',
-    });
+    setFormData(initialFormData);
+    setEditingLicitacion(null);
   };
 
-  const handleCreate = () => {
+  const handleCreateOpenChange = (open: boolean) => {
+    if (open) resetForm();
+    setIsCreateOpen(open);
+  };
+
+  const handleEditOpenChange = (open: boolean) => {
+    if (!open) { setEditingLicitacion(null); resetForm(); }
+    setIsEditOpen(open);
+  };
+
+  // --- Lógica CRUD (API) ---
+
+  const handleCreate = async () => {
     if (!formData.nombre || !formData.estado || !formData.monto) {
       toast.error('Por favor complete todos los campos requeridos');
       return;
     }
 
-    const newLicitacion: Licitacion = {
-      id: 'l' + (Math.max(...licitaciones.map(l => parseInt(l.id.substring(1)))) + 1),
+    const newLicitacionPayload = {
       nombre: formData.nombre,
-      // Se utiliza aserción de tipo ya que el valor viene de un string del Select
       estado: formData.estado as Licitacion["estado"],
       monto: parseFloat(formData.monto),
-      fechaLimite: formData.fechaLimite || undefined,
+      fechaLimite: formData.fechaLimite || undefined, // Enviar undefined si está vacío
     };
 
-    const newLicitaciones = [...licitaciones, newLicitacion];
-    setLicitaciones(newLicitaciones);
-    updateLicitaciones(newLicitaciones);
-    setIsCreateOpen(false);
-    resetForm();
-    toast.success('Licitación registrada exitosamente');
+    try {
+      const res = await apiClient.post<Licitacion>('/licitaciones', newLicitacionPayload);
+      setLicitaciones([...licitaciones, res.data]);
+      handleCreateOpenChange(false);
+      toast.success('Licitación registrada exitosamente');
+    } catch (error) {
+      toast.error('Error al registrar la licitación');
+      console.error(error);
+    }
   };
 
   const handleEdit = (licitacion: Licitacion) => {
@@ -96,46 +139,103 @@ const GestionLicitaciones = () => {
     setFormData({
       nombre: licitacion.nombre,
       estado: licitacion.estado,
-      monto: licitacion.monto.toString(),
-      fechaLimite: licitacion.fechaLimite || '',
+      monto: String(licitacion.monto),
+      fechaLimite: licitacion.fechaLimite ? licitacion.fechaLimite.split('T')[0] : '',
     });
-    setIsEditOpen(true);
+    handleEditOpenChange(true);
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editingLicitacion || !formData.nombre || !formData.estado || !formData.monto) {
       toast.error('Por favor complete todos los campos requeridos');
       return;
     }
 
-    const updatedLicitaciones = licitaciones.map(l =>
-      l.id === editingLicitacion.id
-        ? {
-            ...l,
-            nombre: formData.nombre,
-            estado: formData.estado as Licitacion["estado"],
-            monto: parseFloat(formData.monto),
-            fechaLimite: formData.fechaLimite || undefined,
-          }
-        : l
-    );
+    const updatedLicitacionPayload = {
+      nombre: formData.nombre,
+      estado: formData.estado as Licitacion["estado"],
+      monto: parseFloat(formData.monto),
+      fechaLimite: formData.fechaLimite || undefined,
+    };
 
-    setLicitaciones(updatedLicitaciones);
-    updateLicitaciones(updatedLicitaciones);
-    setIsEditOpen(false);
-    setEditingLicitacion(null);
-    resetForm();
-    toast.success('Licitación actualizada exitosamente');
-  };
-
-  const handleDelete = (id: string) => {
-    if (window.confirm('¿Está seguro de eliminar esta licitación?')) {
-      const newLicitaciones = licitaciones.filter(l => l.id !== id);
-      setLicitaciones(newLicitaciones);
-      updateLicitaciones(newLicitaciones);
-      toast.success('Licitación eliminada exitosamente');
+    try {
+      const res = await apiClient.put<Licitacion>(`/licitaciones/${editingLicitacion.id}`, updatedLicitacionPayload);
+      setLicitaciones(licitaciones.map(l => (l.id === editingLicitacion.id ? res.data : l)));
+      handleEditOpenChange(false);
+      toast.success('Licitación actualizada exitosamente');
+    } catch (error) {
+      toast.error('Error al actualizar la licitación');
+      console.error(error);
     }
   };
+
+  const openDeleteDialog = (id: string | number) => {
+    setDeletingId(id);
+    setIsDeleteOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deletingId) return;
+
+    try {
+      await apiClient.delete(`/licitaciones/${deletingId}`);
+      setLicitaciones(licitaciones.filter(l => l.id !== deletingId));
+      toast.success('Licitación eliminada exitosamente');
+    } catch (error) {
+      toast.error('Error al eliminar la licitación');
+    } finally {
+      setIsDeleteOpen(false);
+      setDeletingId(null);
+    }
+  };
+  
+  // Componente de formulario reutilizable
+  const LicitacionForm = () => (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="nombre">Nombre del Proyecto</Label>
+        <Input
+          id="nombre"
+          value={formData.nombre}
+          onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+          placeholder="Ej: Hospital Regional"
+        />
+      </div>
+      <div>
+        <Label htmlFor="estado">Estado</Label>
+        <Select value={formData.estado} onValueChange={(value) => setFormData({ ...formData, estado: value })}>
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccione estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="En Preparacion">En Preparación</SelectItem>
+            <SelectItem value="Presentada">Presentada</SelectItem>
+            <SelectItem value="Ganada">Ganada</SelectItem>
+            <SelectItem value="Perdida">Perdida</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="monto">Monto de la Propuesta ($)</Label>
+        <Input
+          id="monto"
+          type="number"
+          value={formData.monto}
+          onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
+          placeholder="0.00"
+        />
+      </div>
+      <div>
+        <Label htmlFor="fechaLimite">Fecha Límite (Opcional)</Label>
+        <Input
+          id="fechaLimite"
+          type="date"
+          value={formData.fechaLimite}
+          onChange={(e) => setFormData({ ...formData, fechaLimite: e.target.value })}
+        />
+      </div>
+    </div>
+  );
 
   return (
     <DashboardLayout>
@@ -145,7 +245,7 @@ const GestionLicitaciones = () => {
             <h1 className="text-3xl font-bold text-foreground mb-2">Gestión de Licitaciones</h1>
             <p className="text-muted-foreground">Seguimiento de licitaciones y propuestas comerciales</p>
           </div>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <Dialog open={isCreateOpen} onOpenChange={handleCreateOpenChange}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
@@ -156,52 +256,9 @@ const GestionLicitaciones = () => {
               <DialogHeader>
                 <DialogTitle>Registrar Nueva Licitación</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="nombre">Nombre del Proyecto</Label>
-                  <Input
-                    id="nombre"
-                    value={formData.nombre}
-                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                    placeholder="Ej: Hospital Regional"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="estado">Estado</Label>
-                  <Select value={formData.estado} onValueChange={(value) => setFormData({ ...formData, estado: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="En Preparacion">En Preparación</SelectItem>
-                      <SelectItem value="Presentada">Presentada</SelectItem>
-                      <SelectItem value="Ganada">Ganada</SelectItem>
-                      <SelectItem value="Perdida">Perdida</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="monto">Monto de la Propuesta ($)</Label>
-                  <Input
-                    id="monto"
-                    type="number"
-                    value={formData.monto}
-                    onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="fechaLimite">Fecha Límite (Opcional)</Label>
-                  <Input
-                    id="fechaLimite"
-                    type="date"
-                    value={formData.fechaLimite}
-                    onChange={(e) => setFormData({ ...formData, fechaLimite: e.target.value })}
-                  />
-                </div>
-              </div>
+              <LicitacionForm />
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
+                <Button variant="outline" onClick={() => handleCreateOpenChange(false)}>Cancelar</Button>
                 <Button onClick={handleCreate}>Registrar</Button>
               </DialogFooter>
             </DialogContent>
@@ -259,118 +316,102 @@ const GestionLicitaciones = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Proyecto</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Monto Propuesta</TableHead>
-                    <TableHead>Fecha Límite</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredLicitaciones.map((licitacion) => (
-                    <TableRow key={licitacion.id}>
-                      <TableCell className="font-medium">{licitacion.nombre}</TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={
-                            licitacion.estado === 'Ganada' ? 'default' : 
-                            licitacion.estado === 'Presentada' ? 'secondary' : 
-                            'outline'
-                          }
-                          className={
-                            licitacion.estado === 'Ganada' ? 'bg-success' : 
-                            licitacion.estado === 'Presentada' ? 'bg-primary' : 
-                            ''
-                          }
-                        >
-                          {licitacion.estado}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-bold">${licitacion.monto.toLocaleString()}</TableCell>
-                      <TableCell>{licitacion.fechaLimite || '-'}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleEdit(licitacion)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            onClick={() => handleDelete(licitacion.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+            {loading ? (
+              <p>Cargando licitaciones...</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Proyecto</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Monto Propuesta</TableHead>
+                      <TableHead>Fecha Límite</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLicitaciones.map((licitacion) => (
+                      <TableRow key={licitacion.id}>
+                        <TableCell className="font-medium">{licitacion.nombre}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              licitacion.estado === 'Ganada' ? 'default' :
+                              licitacion.estado === 'Presentada' ? 'secondary' :
+                              licitacion.estado === 'Perdida' ? 'destructive' :
+                              'outline'
+                            }
+                            className={
+                              licitacion.estado === 'Ganada' ? 'bg-success hover:bg-success/80' :
+                              licitacion.estado === 'Presentada' ? 'bg-primary text-primary-foreground hover:bg-primary/80' :
+                              licitacion.estado === 'En Preparacion' ? 'bg-warning text-warning-foreground hover:bg-warning/80' :
+                              ''
+                            }
+                          >
+                            {licitacion.estado}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-bold">${(Number(licitacion.monto) || 0).toLocaleString()}</TableCell>
+                        <TableCell>{licitacion.fechaLimite ? new Date(licitacion.fechaLimite).toLocaleDateString('es-ES') : '-'}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleEdit(licitacion)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              onClick={() => openDeleteDialog(licitacion.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        {/* Modal de Edición */}
+        <Dialog open={isEditOpen} onOpenChange={handleEditOpenChange}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Editar Licitación</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="edit-nombre">Nombre del Proyecto</Label>
-                <Input
-                  id="edit-nombre"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-estado">Estado</Label>
-                <Select value={formData.estado} onValueChange={(value) => setFormData({ ...formData, estado: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="En Preparacion">En Preparación</SelectItem>
-                    <SelectItem value="Presentada">Presentada</SelectItem>
-                    <SelectItem value="Ganada">Ganada</SelectItem>
-                    <SelectItem value="Perdida">Perdida</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="edit-monto">Monto de la Propuesta ($)</Label>
-                <Input
-                  id="edit-monto"
-                  type="number"
-                  value={formData.monto}
-                  onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-fechaLimite">Fecha Límite</Label>
-                <Input
-                  id="edit-fechaLimite"
-                  type="date"
-                  value={formData.fechaLimite}
-                  onChange={(e) => setFormData({ ...formData, fechaLimite: e.target.value })}
-                />
-              </div>
-            </div>
+            <LicitacionForm />
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancelar</Button>
+              <Button variant="outline" onClick={() => handleEditOpenChange(false)}>Cancelar</Button>
               <Button onClick={handleUpdate}>Guardar Cambios</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Modal de Confirmar Borrado */}
+        <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>¿Está seguro?</DialogTitle>
+              <DialogDescription>
+                Esta acción no se puede deshacer. Esto eliminará permanentemente
+                el registro de la licitación.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Cancelar</Button>
+              <Button variant="destructive" onClick={handleDelete}>Eliminar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </DashboardLayout>
   );

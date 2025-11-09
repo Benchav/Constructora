@@ -1,34 +1,70 @@
-// Copiar y pegar todo el contenido
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Proyectos from "./pages/Proyectos";
-import ProyectoDetalle from "./pages/ProyectoDetalle";
-import GestionUsuarios from "./pages/GestionUsuarios";
-import GestionInventario from "./pages/GestionInventario";
-import GestionFinanzas from "./pages/GestionFinanzas";
-import GestionRRHH from "./pages/GestionRRHH";
-import GestionLicitaciones from "./pages/GestionLicitaciones";
-import GestionPlanos from "./pages/GestionPlanos";
-import GestionReportes from "./pages/GestionReportes";
-import MiProyecto from "./pages/MiProyecto";
-import InventarioTotal from "./pages/InventarioTotal";
-import Solicitudes from "./pages/Solicitudes";
-import GestionCompras from "./pages/GestionCompras"; // NUEVA IMPORTACIÓN
-import GestionCalidad from "./pages/GestionCalidad"; // NUEVA IMPORTACIÓN
-import GestionSeguridad from "./pages/GestionSeguridad"; // NUEVA IMPORTACIÓN
-import NotFound from "./pages/NotFound";
+// src/App.tsx
+import { Toaster } from '@/components/ui/toaster';
+import { Toaster as Sonner } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+
+// Páginas
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Proyectos from './pages/Proyectos';
+import ProyectoDetalle from './pages/ProyectoDetalle';
+import GestionUsuarios from './pages/GestionUsuarios';
+import GestionInventario from './pages/GestionInventario';
+import GestionFinanzas from './pages/GestionFinanzas';
+import GestionRRHH from './pages/GestionRRHH';
+import GestionLicitaciones from './pages/GestionLicitaciones';
+import GestionPlanos from './pages/GestionPlanos';
+import GestionReportes from './pages/GestionReportes';
+import MiProyecto from './pages/MiProyecto';
+import InventarioTotal from './pages/InventarioTotal';
+import Solicitudes from './pages/Solicitudes';
+import GestionCompras from './pages/GestionCompras';
+import GestionCalidad from './pages/GestionCalidad';
+import GestionSeguridad from './pages/GestionSeguridad';
+import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
+//  Roles y permisos
+const ROLES = {
+  CEO: "ceo",
+  GERENTE_GENERAL: "gerente general",
+  DIR_PROYECTOS: "director de proyectos",
+  DIR_FINANZAS: "director finanzas",
+  DIR_COMERCIAL: "director comercial",
+  JEFE_OT: "jefe oficina tecnica",
+  JEFE_LOGISTICA: "jefe de logistica",
+  JEFE_OBRA: "jefe de obra",
+  MAESTRO_OBRA: "maestro de obra",
+  BODEGUERO: "bodeguero",
+  RRHH: "rrhh",
+  ADMIN: "asistente administrativo",
+  OPERADOR: "operador de maquinaria",
+  ALBANIL: "albanil",
+};
+
+
+//  Mapeo de rutas a roles permitidos
+const ROUTE_ROLES = {
+  dashboard: [ROLES.CEO, ROLES.GERENTE_GENERAL, ROLES.DIR_PROYECTOS, ROLES.DIR_FINANZAS, ROLES.DIR_COMERCIAL, ROLES.JEFE_OT],
+  proyectos: [ROLES.CEO, ROLES.GERENTE_GENERAL, ROLES.DIR_PROYECTOS],
+  miProyecto: [ROLES.JEFE_OBRA, ROLES.MAESTRO_OBRA],
+  usuarios: [ROLES.CEO, ROLES.GERENTE_GENERAL],
+  inventario: [ROLES.JEFE_OBRA, ROLES.BODEGUERO],
+  inventarioTotal: [ROLES.CEO, ROLES.GERENTE_GENERAL, ROLES.DIR_PROYECTOS, ROLES.JEFE_LOGISTICA],
+  finanzas: [ROLES.CEO, ROLES.GERENTE_GENERAL, ROLES.DIR_FINANZAS, ROLES.ADMIN],
+  rrhh: [ROLES.CEO, ROLES.GERENTE_GENERAL, ROLES.RRHH],
+  licitaciones: [ROLES.CEO, ROLES.GERENTE_GENERAL, ROLES.DIR_COMERCIAL],
+  planos: [ROLES.CEO, ROLES.GERENTE_GENERAL, ROLES.DIR_PROYECTOS, ROLES.JEFE_OT, ROLES.JEFE_OBRA, ROLES.MAESTRO_OBRA, ROLES.ALBANIL, ROLES.OPERADOR],
+  reportes: [ROLES.JEFE_OBRA, ROLES.MAESTRO_OBRA],
+  solicitudes: [ROLES.CEO, ROLES.GERENTE_GENERAL, ROLES.DIR_PROYECTOS, ROLES.DIR_FINANZAS, ROLES.JEFE_OBRA],
+  compras: [ROLES.CEO, ROLES.GERENTE_GENERAL, ROLES.JEFE_LOGISTICA],
+  calidad: [ROLES.DIR_PROYECTOS, ROLES.JEFE_OT, ROLES.JEFE_OBRA],
+  seguridad: [ROLES.DIR_PROYECTOS, ROLES.JEFE_OBRA, ROLES.MAESTRO_OBRA],
 };
 
 const App = () => (
@@ -39,25 +75,76 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            {/* RUTA PÚBLICA */}
             <Route path="/" element={<Login />} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/proyectos" element={<ProtectedRoute><Proyectos /></ProtectedRoute>} />
-            <Route path="/proyecto/:id" element={<ProtectedRoute><ProyectoDetalle /></ProtectedRoute>} />
-            <Route path="/mi-proyecto" element={<ProtectedRoute><MiProyecto /></ProtectedRoute>} />
-            <Route path="/usuarios" element={<ProtectedRoute><GestionUsuarios /></ProtectedRoute>} />
-            <Route path="/inventario" element={<ProtectedRoute><GestionInventario /></ProtectedRoute>} />
-            <Route path="/inventario-total" element={<ProtectedRoute><InventarioTotal /></ProtectedRoute>} />
-            <Route path="/finanzas" element={<ProtectedRoute><GestionFinanzas /></ProtectedRoute>} />
-            <Route path="/rrhh" element={<ProtectedRoute><GestionRRHH /></ProtectedRoute>} />
-            <Route path="/licitaciones" element={<ProtectedRoute><GestionLicitaciones /></ProtectedRoute>} />
-            <Route path="/planos" element={<ProtectedRoute><GestionPlanos /></ProtectedRoute>} />
-            <Route path="/reportes" element={<ProtectedRoute><GestionReportes /></ProtectedRoute>} />
-            <Route path="/solicitudes" element={<ProtectedRoute><Solicitudes /></ProtectedRoute>} />
-            {/* NUEVAS RUTAS DE GESTIÓN */}
-            <Route path="/compras" element={<ProtectedRoute><GestionCompras /></ProtectedRoute>} />
-            <Route path="/calidad" element={<ProtectedRoute><GestionCalidad /></ProtectedRoute>} />
-            <Route path="/seguridad" element={<ProtectedRoute><GestionSeguridad /></ProtectedRoute>} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+            {/* RUTAS PROTEGIDAS */}
+            <Route
+              path="/dashboard"
+              element={<ProtectedRoute roles={ROUTE_ROLES.dashboard}><Dashboard /></ProtectedRoute>}
+            />
+            <Route
+              path="/proyectos"
+              element={<ProtectedRoute roles={ROUTE_ROLES.proyectos}><Proyectos /></ProtectedRoute>}
+            />
+            <Route
+              path="/proyecto/:id"
+              element={<ProtectedRoute roles={ROUTE_ROLES.proyectos}><ProyectoDetalle /></ProtectedRoute>}
+            />
+            <Route
+              path="/mi-proyecto"
+              element={<ProtectedRoute roles={ROUTE_ROLES.miProyecto}><MiProyecto /></ProtectedRoute>}
+            />
+            <Route
+              path="/usuarios"
+              element={<ProtectedRoute roles={ROUTE_ROLES.usuarios}><GestionUsuarios /></ProtectedRoute>}
+            />
+            <Route
+              path="/inventario"
+              element={<ProtectedRoute roles={ROUTE_ROLES.inventario}><GestionInventario /></ProtectedRoute>}
+            />
+            <Route
+              path="/inventario-total"
+              element={<ProtectedRoute roles={ROUTE_ROLES.inventarioTotal}><InventarioTotal /></ProtectedRoute>}
+            />
+            <Route
+              path="/finanzas"
+              element={<ProtectedRoute roles={ROUTE_ROLES.finanzas}><GestionFinanzas /></ProtectedRoute>}
+            />
+            <Route
+              path="/rrhh"
+              element={<ProtectedRoute roles={ROUTE_ROLES.rrhh}><GestionRRHH /></ProtectedRoute>}
+            />
+            <Route
+              path="/licitaciones"
+              element={<ProtectedRoute roles={ROUTE_ROLES.licitaciones}><GestionLicitaciones /></ProtectedRoute>}
+            />
+            <Route
+              path="/planos"
+              element={<ProtectedRoute roles={ROUTE_ROLES.planos}><GestionPlanos /></ProtectedRoute>}
+            />
+            <Route
+              path="/reportes"
+              element={<ProtectedRoute roles={ROUTE_ROLES.reportes}><GestionReportes /></ProtectedRoute>}
+            />
+            <Route
+              path="/solicitudes"
+              element={<ProtectedRoute roles={ROUTE_ROLES.solicitudes}><Solicitudes /></ProtectedRoute>}
+            />
+            <Route
+              path="/compras"
+              element={<ProtectedRoute roles={ROUTE_ROLES.compras}><GestionCompras /></ProtectedRoute>}
+            />
+            <Route
+              path="/calidad"
+              element={<ProtectedRoute roles={ROUTE_ROLES.calidad}><GestionCalidad /></ProtectedRoute>}
+            />
+            <Route
+              path="/seguridad"
+              element={<ProtectedRoute roles={ROUTE_ROLES.seguridad}><GestionSeguridad /></ProtectedRoute>}
+            />
+
+            {/* RUTA POR DEFECTO */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

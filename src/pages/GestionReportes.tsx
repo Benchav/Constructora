@@ -1,5 +1,5 @@
-// Copiar y pegar todo el contenido
-import { useState } from 'react';
+// src/pages/GestionReportes.tsx
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,56 +21,95 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// ====================================================================
-// CORRECCIÓN: Importar interfaces desde models.ts
-import { ReporteDiario } from '@/data/models';
-// CORRECCIÓN: Importar mocks y helpers desde mockData.ts
-import { mockReportesDiarios, updateReportesDiarios, mockProyectos } from '@/data/mockData';
-// ====================================================================
-import { useAuth } from '@/contexts/AuthContext';
-import { Plus, FileText, Calendar } from 'lucide-react';
+import { ReporteDiario, Proyecto } from '@/data/models'; // Importar ambos modelos
+import apiClient from '@/lib/api'; // Importar API Client
+import { useAuth } from '@/hooks/useAuth'; // Estandarizado a @/hooks/useAuth
+import { Plus, FileText, Calendar, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+
+// Definición de tipo para el formulario
+type ReporteFormData = {
+  fecha: string;
+  proyectoId: string;
+  resumen: string;
+};
 
 const GestionReportes = () => {
   const { user } = useAuth();
-  // CORREGIDO: Asegurar que los estados iniciales siempre sean arrays
-  const [reportes, setReportes] = useState(mockReportesDiarios || []);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    fecha: new Date().toISOString().split('T')[0],
-    proyectoId: '', // El estado inicial está bien como '', se poblará al abrir
-    resumen: '',
-  });
-
-  const proyectoAsignado = user?.proyectoAsignadoId;
   
-  // CORREGIDO: Código defensivo para filtrar reportes
-  const filteredReportes = (reportes || []).filter(r =>
-    proyectoAsignado ? r.proyectoId === proyectoAsignado : true
-  ).sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+  // --- Estados de Datos (API) ---
+  const [reportes, setReportes] = useState<ReporteDiario[]>([]);
+  const [proyectos, setProyectos] = useState<Proyecto[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Esta función ahora establece los valores por defecto CADA VEZ que se llama
+  // --- Estados de UI (Modal) ---
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  
+  const initialFormData: ReporteFormData = {
+    fecha: new Date().toISOString().split('T')[0],
+    proyectoId: '',
+    resumen: '',
+  };
+  const [formData, setFormData] = useState<ReporteFormData>(initialFormData);
+
+  const proyectoAsignadoId = user?.proyectoAsignadoId;
+
+  // --- Carga de Datos (API) ---
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [reportesRes, proyectosRes] = await Promise.all([
+          apiClient.get<ReporteDiario[]>('/reportes'),
+          apiClient.get<Proyecto[]>('/proyectos'), // Para el dropdown
+        ]);
+
+        setReportes(Array.isArray(reportesRes.data) ? reportesRes.data : []);
+        setProyectos(Array.isArray(proyectosRes.data) ? proyectosRes.data : []);
+
+      } catch (error) {
+        toast.error('No se pudieron cargar los datos');
+        console.error("Error al cargar datos:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []); // Cargar solo una vez
+
+  // --- Lógica de Filtro (de Archivo 1) ---
+  // Filtra los reportes para mostrar solo los del proyecto asignado al usuario
+  const filteredReportes = reportes
+    .filter(r => 
+      proyectoAsignadoId ? r.proyectoId === proyectoAsignadoId : true
+    )
+    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
+  // --- Helpers ---
+  const getProjectName = (proyectoId?: number) => {
+    if (!proyectoId) return "Proyecto no asignado";
+    return proyectos.find(p => p.id === proyectoId)?.nombre || `Proyecto ID: ${proyectoId}`;
+  };
+
   const resetForm = () => {
     setFormData({
       fecha: new Date().toISOString().split('T')[0],
-      // CORREGIDO: Esta es la lógica clave. Se usará al abrir el modal.
-      proyectoId: proyectoAsignado?.toString() || '',
+      // Poblar con el proyectoId del usuario por defecto
+      proyectoId: proyectoAsignadoId?.toString() || '',
       resumen: '',
     });
   };
 
-  // --- NUEVO HANDLER PARA EL MODAL ---
   const handleCreateOpenChange = (open: boolean) => {
     if (open) {
-      // Al ABRIR el modal, llamamos a resetForm
-      // para poblarlo con la fecha y el proyectoId del usuario.
-      resetForm();
+      resetForm(); // Poblar el formulario con valores por defecto al abrir
     }
     setIsCreateOpen(open);
   };
-  // --- FIN DEL NUEVO HANDLER ---
 
-  const handleCreate = () => {
+  // --- Lógica de Creación (API) ---
+  const handleCreate = async () => {
     if (!formData.fecha || !formData.proyectoId || !formData.resumen) {
       toast.error('Por favor complete todos los campos');
       return;
@@ -81,52 +120,23 @@ const GestionReportes = () => {
       return;
     }
 
-    // CORREGIDO: Cálculo de ID más seguro
-    const currentReportes = reportes || [];
-    const newIdNum = currentReportes.length > 0 
-      // Se añade || 0 para manejar el caso de array vacío o ids no numéricos con seguridad
-      ? Math.max(...currentReportes.map(r => parseInt(r.id.substring(1)) || 0)) + 1 
-      : 1;
-
-    const newReporte: ReporteDiario = {
-      id: 'r' + newIdNum,
+    const newReportePayload = {
       fecha: formData.fecha,
       proyectoId: parseInt(formData.proyectoId),
-      creadoPor: user?.nombre || 'Usuario',
+      creadoPor: user?.nombre || 'Usuario', // Tomar el nombre del usuario en sesión
       resumen: formData.resumen,
     };
 
-    const newReportes = [...currentReportes, newReporte];
-    setReportes(newReportes);
-    if (typeof updateReportesDiarios === 'function') {
-      updateReportesDiarios(newReportes);
+    try {
+      const res = await apiClient.post<ReporteDiario>('/reportes', newReportePayload);
+      setReportes([...reportes, res.data]); // Añadir el nuevo reporte
+      handleCreateOpenChange(false);
+      toast.success('Reporte diario registrado exitosamente');
+    } catch (error) {
+      toast.error('Error al registrar el reporte');
+      console.error(error);
     }
-    
-    handleCreateOpenChange(false); // CORREGIDO: Usar el handler para cerrar
-    // resetForm(); // CORREGIDO: Ya no es necesario aquí, el handler lo hará al abrir
-    toast.success('Reporte diario registrado exitosamente');
   };
-
-  // --- RENDERIZADOR DEFENSIVO DE PROYECTOS ---
-  const renderProjectOptions = () => {
-    if (!Array.isArray(mockProyectos)) {
-      return <SelectItem value="loading" disabled>Cargando...</SelectItem>;
-    }
-
-    return mockProyectos
-      .filter(p => !proyectoAsignado || p.id === proyectoAsignado) // Lógica original
-      .map(p => (
-        <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-      ));
-  };
-  
-  const getProjectName = (proyectoId?: number) => {
-    if (!proyectoId || !Array.isArray(mockProyectos)) {
-      return 'Proyecto no encontrado';
-    }
-    return mockProyectos.find(p => p.id === proyectoId)?.nombre || 'Proyecto no encontrado';
-  };
-  // --- FIN RENDERIZADOR ---
 
   return (
     <DashboardLayout>
@@ -136,7 +146,6 @@ const GestionReportes = () => {
             <h1 className="text-3xl font-bold text-foreground mb-2">Reportes Diarios de Obra</h1>
             <p className="text-muted-foreground">Registre el avance y actividades del día</p>
           </div>
-          {/* CORREGIDO: Usar el nuevo handler onOpenChange */}
           <Dialog open={isCreateOpen} onOpenChange={handleCreateOpenChange}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -163,14 +172,21 @@ const GestionReportes = () => {
                   <Select
                     value={formData.proyectoId}
                     onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}
-                    disabled={!!proyectoAsignado} // Se deshabilita si el usuario tiene proyecto
+                    // Deshabilitar si el usuario tiene un proyecto asignado
+                    disabled={!!proyectoAsignadoId} 
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccione proyecto" />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* CORREGIDO: Usar el renderizador defensivo */}
-                      {renderProjectOptions()}
+                      {/* Poblar con proyectos de la API */}
+                      {proyectos
+                        // Mostrar solo el proyecto del usuario (si lo tiene) o todos si es admin (aunque aquí no filtramos por admin)
+                        .filter(p => !proyectoAsignadoId || p.id === proyectoAsignadoId) 
+                        .map(p => (
+                          <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
+                        ))
+                      }
                     </SelectContent>
                   </Select>
                 </div>
@@ -190,7 +206,6 @@ const GestionReportes = () => {
                 </div>
               </div>
               <DialogFooter>
-                {/* CORREGIDO: Usar el handler para cerrar */}
                 <Button variant="outline" onClick={() => handleCreateOpenChange(false)}>Cancelar</Button>
                 <Button onClick={handleCreate}>Crear Reporte</Button>
               </DialogFooter>
@@ -198,49 +213,53 @@ const GestionReportes = () => {
           </Dialog>
         </div>
 
-        <div className="grid gap-4">
-          {/* CORREGIDO: Usar el array filtrado y seguro */}
-          {filteredReportes.map((reporte) => (
-            <Card key={reporte.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-primary" />
-                      {/* CORREGIDO: Usar la función segura getProjectName */}
+        {/* --- Lista de Reportes --- */}
+        {loading ? (
+          <p>Cargando reportes...</p>
+        ) : filteredReportes.length === 0 ? (
+          // Vista de "No hay reportes" (de Archivo 1)
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No hay reportes registrados</h3>
+              <p className="text-muted-foreground mb-4">Cree su primer reporte diario</p>
+              <Button onClick={() => handleCreateOpenChange(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Crear Reporte
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          // Cuadrícula de reportes (Estilo de Archivo 2)
+          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+            {filteredReportes.map((reporte) => (
+              <Card key={reporte.id} className="hover:shadow-lg transition-all">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <CardTitle className="text-xl">
+                      {/* Usar helper para mostrar nombre del proyecto */}
                       {getProjectName(reporte.proyectoId)}
                     </CardTitle>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {reporte.fecha}
-                      </span>
-                      <span>Por: {reporte.creadoPor}</span>
+                    <Badge variant="secondary">ID: {reporte.id}</Badge>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4" />
+                      <span>{reporte.fecha ? new Date(reporte.fecha).toLocaleDateString('es-ES') : "N/A"}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <User className="h-4 w-4" />
+                      <span>{reporte.creadoPor}</span>
                     </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-foreground whitespace-pre-wrap">{reporte.resumen}</p>
-              </CardContent>
-            </Card>
-          ))}
-
-          {/* CORREGIDO: Usar el array filtrado y seguro */}
-          {filteredReportes.length === 0 && (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No hay reportes registrados</h3>
-                <p className="text-muted-foreground mb-4">Cree su primer reporte diario</p>
-                <Button onClick={() => handleCreateOpenChange(true)}> {/* CORREGIDO: Usar handler */}
-                  <Plus className="h-4 w-4 mr-2" />
-                  Crear Reporte
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{reporte.resumen}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

@@ -1,5 +1,5 @@
-// Copiar y pegar todo el contenido
-import { useState } from 'react';
+// src/pages/GestionPlanos.tsx
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription, // Importar para el diálogo de borrado
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -20,112 +21,218 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// ====================================================================
-// CORRECCIÓN: Importar Plano desde models.ts
-import { Plano } from '@/data/models';
-// CORRECCIÓN: Importar mocks y helpers desde mockData.ts
-import { mockPlanos, updatePlanos, mockProyectos } from '@/data/mockData';
-// ====================================================================
+import { Plano, Proyecto } from '@/data/models'; // Importar ambos modelos
+import apiClient from '@/lib/api'; // Importar API Client
 import { Plus, Pencil, Trash2, Search, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 
+// Definición de tipo para el formulario
+type PlanoFormData = {
+  nombre: string;
+  proyectoId: string;
+  categoria: string;
+  fecha: string;
+};
+
 const GestionPlanos = () => {
-  const [planos, setPlanos] = useState(mockPlanos);
+  // --- Estados de Datos (API) ---
+  const [planos, setPlanos] = useState<Plano[]>([]);
+  const [proyectos, setProyectos] = useState<Proyecto[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // --- Estados de UI (CRUD, Búsqueda) ---
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false); // Para el modal de confirmación
+
   const [editingPlano, setEditingPlano] = useState<Plano | null>(null);
-  const [formData, setFormData] = useState({
+  const [deletingId, setDeletingId] = useState<string | number | null>(null);
+
+  const initialFormData: PlanoFormData = {
     nombre: '',
     proyectoId: '',
     categoria: '',
     fecha: new Date().toISOString().split('T')[0],
-  });
+  };
+  const [formData, setFormData] = useState<PlanoFormData>(initialFormData);
 
-  const filteredPlanos = planos.filter(p => 
-    p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.categoria.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
+  // Lista de categorías (de Archivo 1)
   const categorias = ['Estructural', 'Arquitectónico', 'Electricidad', 'Hidráulico', 'Mecánico', 'Sanitario'];
 
+  // --- Carga de Datos (API) ---
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [planosRes, proyectosRes] = await Promise.all([
+          apiClient.get<Plano[]>('/planos'),
+          apiClient.get<Proyecto[]>('/proyectos'), // Necesario para el dropdown
+        ]);
+        
+        setPlanos(Array.isArray(planosRes.data) ? planosRes.data : []);
+        setProyectos(Array.isArray(proyectosRes.data) ? proyectosRes.data : []);
+
+      } catch (error) {
+        toast.error('No se pudieron cargar los datos');
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // --- Lógica de Búsqueda ---
+  const filteredPlanos = planos.filter(p =>
+    (p.nombre?.toLowerCase() ?? '').includes(searchTerm.toLowerCase()) ||
+    (p.categoria?.toLowerCase() ?? '').includes(searchTerm.toLowerCase())
+  );
+
   const resetForm = () => {
-    setFormData({
-      nombre: '',
-      proyectoId: '',
-      categoria: '',
-      fecha: new Date().toISOString().split('T')[0],
-    });
+    setFormData(initialFormData);
+    setEditingPlano(null);
   };
 
-  const handleCreate = () => {
+  // --- Lógica CRUD (API) ---
+
+  const handleCreate = async () => {
     if (!formData.nombre || !formData.proyectoId || !formData.categoria) {
       toast.error('Por favor complete todos los campos requeridos');
       return;
     }
 
-    const newPlano: Plano = {
-      id: 'p' + (Math.max(...planos.map(p => parseInt(p.id.substring(1)))) + 1),
+    const newPlanoPayload = {
       nombre: formData.nombre,
-      proyectoId: parseInt(formData.proyectoId),
+      proyectoId: parseInt(formData.proyectoId), // Convertir a número
       categoria: formData.categoria,
       fecha: formData.fecha,
     };
 
-    const newPlanos = [...planos, newPlano];
-    setPlanos(newPlanos);
-    updatePlanos(newPlanos);
-    setIsCreateOpen(false);
-    resetForm();
-    toast.success('Plano registrado exitosamente');
+    try {
+      const res = await apiClient.post<Plano>('/planos', newPlanoPayload);
+      setPlanos([...planos, res.data]); // Añadir el nuevo plano devuelto por la API
+      setIsCreateOpen(false);
+      resetForm();
+      toast.success('Plano registrado exitosamente');
+    } catch (error) {
+      toast.error('Error al registrar el plano');
+      console.error(error);
+    }
   };
 
   const handleEdit = (plano: Plano) => {
     setEditingPlano(plano);
     setFormData({
       nombre: plano.nombre,
-      proyectoId: plano.proyectoId.toString(),
+      proyectoId: String(plano.proyectoId), // Convertir a string para el Select
       categoria: plano.categoria,
-      fecha: plano.fecha || new Date().toISOString().split('T')[0],
+      fecha: plano.fecha ? plano.fecha.split('T')[0] : new Date().toISOString().split('T')[0],
     });
     setIsEditOpen(true);
   };
 
-  const handleUpdate = () => {
-    if (!editingPlano || !formData.nombre || !formData.proyectoId || !formData.categoria) {
+  const handleUpdate = async () => {
+    if (!editingPlano) return;
+
+    if (!formData.nombre || !formData.proyectoId || !formData.categoria) {
       toast.error('Por favor complete todos los campos requeridos');
       return;
     }
 
-    const updatedPlanos = planos.map(p =>
-      p.id === editingPlano.id
-        ? {
-            ...p,
-            nombre: formData.nombre,
-            proyectoId: parseInt(formData.proyectoId),
-            categoria: formData.categoria,
-            fecha: formData.fecha,
-          }
-        : p
-    );
+    const updatedPlanoPayload = {
+      nombre: formData.nombre,
+      proyectoId: parseInt(formData.proyectoId),
+      categoria: formData.categoria,
+      fecha: formData.fecha,
+    };
 
-    setPlanos(updatedPlanos);
-    updatePlanos(updatedPlanos);
-    setIsEditOpen(false);
-    setEditingPlano(null);
-    resetForm();
-    toast.success('Plano actualizado exitosamente');
-  };
-
-  const handleDelete = (id: string) => {
-    if (window.confirm('¿Está seguro de eliminar este plano?')) {
-      const newPlanos = planos.filter(p => p.id !== id);
-      setPlanos(newPlanos);
-      updatePlanos(newPlanos);
-      toast.success('Plano eliminado exitosamente');
+    try {
+      const res = await apiClient.put<Plano>(`/planos/${editingPlano.id}`, updatedPlanoPayload);
+      setPlanos(planos.map(p => (p.id === editingPlano.id ? res.data : p)));
+      setIsEditOpen(false);
+      resetForm();
+      toast.success('Plano actualizado exitosamente');
+    } catch (error) {
+      toast.error('Error al actualizar el plano');
+      console.error(error);
     }
   };
+
+  // Abre el modal de confirmación
+  const openDeleteDialog = (id: string | number) => {
+    setDeletingId(id);
+    setIsDeleteOpen(true);
+  };
+
+  // Ejecuta la eliminación
+  const handleDelete = async () => {
+    if (!deletingId) return;
+
+    try {
+      await apiClient.delete(`/planos/${deletingId}`);
+      setPlanos(planos.filter(p => p.id !== deletingId));
+      setIsDeleteOpen(false);
+      setDeletingId(null);
+      toast.success('Plano eliminado exitosamente');
+    } catch (error) {
+      toast.error('Error al eliminar el plano');
+      setIsDeleteOpen(false);
+      setDeletingId(null);
+      console.error(error);
+    }
+  };
+
+  // Componente de Formulario reutilizable
+  const PlanoForm = () => (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="nombre">Nombre del Archivo</Label>
+        <Input
+          id="nombre"
+          value={formData.nombre}
+          onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+          placeholder="Ej: Plano Estructural P1.pdf"
+        />
+      </div>
+      <div>
+        <Label htmlFor="proyecto">Proyecto</Label>
+        <Select value={formData.proyectoId} onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}>
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccione proyecto" />
+          </SelectTrigger>
+          <SelectContent>
+            {proyectos.map(p => (
+              <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="categoria">Categoría</Label>
+        <Select value={formData.categoria} onValueChange={(value) => setFormData({ ...formData, categoria: value })}>
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccione categoría" />
+          </SelectTrigger>
+          <SelectContent>
+            {categorias.map(c => (
+              <SelectItem key={c} value={c}>{c}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="fecha">Fecha</Label>
+        <Input
+          id="fecha"
+          type="date"
+          value={formData.fecha}
+          onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
+        />
+      </div>
+    </div>
+  );
 
   return (
     <DashboardLayout>
@@ -146,54 +253,9 @@ const GestionPlanos = () => {
               <DialogHeader>
                 <DialogTitle>Registrar Nuevo Plano</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="nombre">Nombre del Archivo</Label>
-                  <Input
-                    id="nombre"
-                    value={formData.nombre}
-                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                    placeholder="Ej: Plano Estructural P1.pdf"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="proyecto">Proyecto</Label>
-                  <Select value={formData.proyectoId} onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione proyecto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockProyectos.map(p => (
-                        <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="categoria">Categoría</Label>
-                  <Select value={formData.categoria} onValueChange={(value) => setFormData({ ...formData, categoria: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione categoría" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categorias.map(c => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="fecha">Fecha</Label>
-                  <Input
-                    id="fecha"
-                    type="date"
-                    value={formData.fecha}
-                    onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-                  />
-                </div>
-              </div>
+              <PlanoForm />
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
+                <Button variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>Cancelar</Button>
                 <Button onClick={handleCreate}>Registrar</Button>
               </DialogFooter>
             </DialogContent>
@@ -214,106 +276,92 @@ const GestionPlanos = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredPlanos.map((plano) => (
-                <Card key={plano.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 bg-primary/10 rounded">
-                        <FileText className="h-6 w-6 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm truncate">{plano.nombre}</h3>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {mockProyectos.find(p => p.id === plano.proyectoId)?.nombre}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant="outline">{plano.categoria}</Badge>
-                          <span className="text-xs text-muted-foreground">{plano.fecha}</span>
+            {loading ? (
+              <p className="text-muted-foreground">Cargando planos...</p>
+            ) : filteredPlanos.length === 0 ? (
+                <p className="text-muted-foreground">No se encontraron planos.</p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredPlanos.map((plano) => (
+                  <Card key={plano.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-primary/10 rounded">
+                          <FileText className="h-6 w-6 text-primary" />
                         </div>
-                        <div className="flex gap-2 mt-3">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEdit(plano)}
-                            className="flex-1"
-                          >
-                            <Pencil className="h-3 w-3 mr-1" />
-                            Editar
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDelete(plano.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm truncate" title={plano.nombre}>{plano.nombre}</h3>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {/* Usar 'proyectos' de la API */}
+                            {proyectos.find(p => p.id === plano.proyectoId)?.nombre ?? "N/A"}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="outline">{plano.categoria}</Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {plano.fecha ? new Date(plano.fecha).toLocaleDateString('es-ES') : "N/A"}
+                            </span>
+                          </div>
+                          <div className="flex gap-2 mt-3">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEdit(plano)}
+                              className="flex-1"
+                            >
+                              <Pencil className="h-3 w-3 mr-1" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => openDeleteDialog(plano.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
+        {/* --- Diálogos --- */}
+
+        {/* Diálogo de Editar */}
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Editar Plano</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="edit-nombre">Nombre del Archivo</Label>
-                <Input
-                  id="edit-nombre"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-proyecto">Proyecto</Label>
-                <Select value={formData.proyectoId} onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockProyectos.map(p => (
-                      <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="edit-categoria">Categoría</Label>
-                <Select value={formData.categoria} onValueChange={(value) => setFormData({ ...formData, categoria: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categorias.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="edit-fecha">Fecha</Label>
-                <Input
-                  id="edit-fecha"
-                  type="date"
-                  value={formData.fecha}
-                  onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-                />
-              </div>
-            </div>
+            <PlanoForm />
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancelar</Button>
+              <Button variant="outline" onClick={() => { setIsEditOpen(false); resetForm(); }}>Cancelar</Button>
               <Button onClick={handleUpdate}>Guardar Cambios</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Diálogo de Confirmar Borrado */}
+        <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>¿Está seguro?</DialogTitle>
+              <DialogDescription>
+                Esta acción no se puede deshacer. Esto eliminará permanentemente
+                el registro del plano.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Cancelar</Button>
+              <Button variant="destructive" onClick={handleDelete}>Eliminar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </DashboardLayout>
   );

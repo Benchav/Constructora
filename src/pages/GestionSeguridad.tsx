@@ -1,5 +1,5 @@
-// Copiar y pegar todo el contenido
-import { useState } from 'react';
+// src/pages/GestionSeguridad.tsx
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription, // Importado para el modal de borrado
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -29,46 +30,112 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// ====================================================================
-// CORRECCIÓN: Importar la interfaz desde models.ts
-import { IncidenteSeguridad } from '@/data/models'; 
-// CORRECCIÓN: Importar datos y helpers mutables desde mockData.ts
-import { mockIncidentesSeguridad, updateIncidentesSeguridad, mockProyectos } from '@/data/mockData';
-// ====================================================================
-import { Plus, Pencil, Trash2, Search, Shield, AlertTriangle, User, ClipboardList } from 'lucide-react';
+import { IncidenteSeguridad, Proyecto } from '@/data/models'; // Importar ambos modelos
+import apiClient from '@/lib/api'; // Importar API Client
+import { Plus, Pencil, Trash2, Search, AlertTriangle, User, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 
-const getProjectName = (proyectoId: number) => 
-  mockProyectos.find(p => p.id === proyectoId)?.nombre || 'N/A';
+// Definición de tipo para el formulario
+type IncidenteFormData = {
+  proyectoId: string;
+  fecha: string;
+  tipo: string;
+  descripcion: string;
+  responsable: string;
+};
 
 const GestionSeguridad = () => {
-  const [incidentes, setIncidentes] = useState(mockIncidentesSeguridad);
+  // --- Estados de Datos (API) ---
+  const [incidentes, setIncidentes] = useState<IncidenteSeguridad[]>([]);
+  const [proyectos, setProyectos] = useState<Proyecto[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // --- Estados de UI (CRUD, Búsqueda) ---
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingIncidente, setEditingIncidente] = useState<IncidenteSeguridad | null>(null);
-  const [formData, setFormData] = useState({
+
+  // --- Estados para Diálogos ---
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | number | null>(null);
+
+  const initialFormData: IncidenteFormData = {
     proyectoId: '',
     fecha: new Date().toISOString().split('T')[0],
     tipo: 'Incidente',
     descripcion: '',
     responsable: '',
-  });
+  };
+  const [formData, setFormData] = useState<IncidenteFormData>(initialFormData);
 
-  const filteredIncidentes = incidentes.filter(i => 
-    i.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    i.responsable.toLowerCase().includes(searchTerm.toLowerCase())
+  // --- Carga de Datos (API) ---
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [incidentesRes, proyectosRes] = await Promise.all([
+          apiClient.get<IncidenteSeguridad[]>('/incidentesSeguridad'),
+          apiClient.get<Proyecto[]>('/proyectos'), // Para el dropdown
+        ]);
+        
+        setIncidentes(Array.isArray(incidentesRes.data) ? incidentesRes.data : []);
+        setProyectos(Array.isArray(proyectosRes.data) ? proyectosRes.data : []);
+
+      } catch (error) {
+        toast.error('No se pudieron cargar los datos');
+        console.error("Error al cargar datos:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // --- Helper (movido adentro para acceder al estado 'proyectos') ---
+  const getProjectName = (proyectoId: number) => {
+    if (!proyectos || proyectos.length === 0) return 'N/A';
+    return proyectos.find(p => p.id === proyectoId)?.nombre || 'N/A';
+  }
+
+  // --- Lógica de UI (Filtros, KPIs) ---
+  const filteredIncidentes = incidentes.filter(i =>
+    (i.descripcion?.toLowerCase() ?? '').includes(searchTerm.toLowerCase()) ||
+    (i.responsable?.toLowerCase() ?? '').includes(searchTerm.toLowerCase())
   );
 
+  const accidentesCount = incidentes.filter(i => i.tipo === 'Accidente').length;
+  const inspeccionesCount = incidentes.filter(i => i.tipo === 'Inspección').length;
+
+  const renderTipoBadge = (tipo: IncidenteSeguridad['tipo']) => {
+    let variant: 'default' | 'destructive' | 'secondary' = 'secondary';
+    let icon: React.ReactNode;
+    let className = '';
+
+    switch (tipo) {
+      case 'Accidente':
+        variant = 'destructive';
+        icon = <AlertTriangle className="h-3 w-3 mr-1" />;
+        break;
+      case 'Incidente':
+        variant = 'default';
+        className = 'bg-warning text-warning-foreground hover:bg-warning/80' // Color Naranja/Amarillo
+        icon = <AlertTriangle className="h-3 w-3 mr-1" />;
+        break;
+      case 'Inspección':
+        variant = 'secondary';
+        className = 'bg-primary text-primary-foreground hover:bg-primary/80' // Color Azul
+        icon = <ClipboardList className="h-3 w-3 mr-1" />;
+        break;
+    }
+    return <Badge variant={variant} className={className}>{icon}{tipo}</Badge>;
+  };
+
+
   const resetForm = () => {
-    setFormData({
-      proyectoId: '',
-      fecha: new Date().toISOString().split('T')[0],
-      tipo: 'Incidente',
-      descripcion: '',
-      responsable: '',
-    });
+    setFormData(initialFormData);
+    setEditingIncidente(null);
   };
 
   const handleCreateOpenChange = (open: boolean) => {
@@ -81,14 +148,15 @@ const GestionSeguridad = () => {
     setIsEditOpen(open);
   };
 
-  const handleCreate = () => {
+  // --- Lógica CRUD (API) ---
+
+  const handleCreate = async () => {
     if (!formData.proyectoId || !formData.descripcion || !formData.responsable) {
       toast.error('Por favor complete todos los campos requeridos');
       return;
     }
 
-    const newIncidente: IncidenteSeguridad = {
-      id: 'is' + (Math.max(...incidentes.map(i => parseInt(i.id.substring(2)) || 0)) + 1),
+    const newIncidentePayload = {
       proyectoId: parseInt(formData.proyectoId),
       fecha: formData.fecha,
       tipo: formData.tipo as IncidenteSeguridad["tipo"],
@@ -96,18 +164,22 @@ const GestionSeguridad = () => {
       responsable: formData.responsable,
     };
 
-    const newIncidentes = [...incidentes, newIncidente];
-    setIncidentes(newIncidentes);
-    updateIncidentesSeguridad(newIncidentes);
-    handleCreateOpenChange(false);
-    toast.success('Registro de Seguridad creado exitosamente');
+    try {
+      const res = await apiClient.post<IncidenteSeguridad>('/incidentesSeguridad', newIncidentePayload);
+      setIncidentes([...incidentes, res.data]);
+      handleCreateOpenChange(false);
+      toast.success('Registro de Seguridad creado exitosamente');
+    } catch (error) {
+      toast.error('Error al registrar el evento');
+      console.error(error);
+    }
   };
 
   const handleEdit = (incidente: IncidenteSeguridad) => {
     setEditingIncidente(incidente);
     setFormData({
-      proyectoId: incidente.proyectoId.toString(),
-      fecha: incidente.fecha,
+      proyectoId: String(incidente.proyectoId),
+      fecha: incidente.fecha ? incidente.fecha.split('T')[0] : new Date().toISOString().split('T')[0],
       tipo: incidente.tipo,
       descripcion: incidente.descripcion,
       responsable: incidente.responsable,
@@ -115,63 +187,114 @@ const GestionSeguridad = () => {
     handleEditOpenChange(true);
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editingIncidente || !formData.proyectoId || !formData.descripcion || !formData.responsable) {
       toast.error('Por favor complete todos los campos requeridos');
       return;
     }
 
-    const updatedIncidentes = incidentes.map(i =>
-      i.id === editingIncidente.id
-        ? {
-            ...i,
-            proyectoId: parseInt(formData.proyectoId),
-            fecha: formData.fecha,
-            tipo: formData.tipo as IncidenteSeguridad["tipo"],
-            descripcion: formData.descripcion,
-            responsable: formData.responsable,
-          }
-        : i
-    );
+    const updatedIncidentePayload = {
+      proyectoId: parseInt(formData.proyectoId),
+      fecha: formData.fecha,
+      tipo: formData.tipo as IncidenteSeguridad["tipo"],
+      descripcion: formData.descripcion,
+      responsable: formData.responsable,
+    };
 
-    setIncidentes(updatedIncidentes);
-    updateIncidentesSeguridad(updatedIncidentes);
-    handleEditOpenChange(false);
-    toast.success('Registro de Seguridad actualizado exitosamente');
+    try {
+      const res = await apiClient.put<IncidenteSeguridad>(`/incidentesSeguridad/${editingIncidente.id}`, updatedIncidentePayload);
+      setIncidentes(incidentes.map(i => (i.id === editingIncidente.id ? res.data : i)));
+      handleEditOpenChange(false);
+      toast.success('Registro de Seguridad actualizado exitosamente');
+    } catch (error) {
+      toast.error('Error al actualizar el evento');
+      console.error(error);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('¿Está seguro de eliminar este registro de seguridad?')) {
-      const newIncidentes = incidentes.filter(i => i.id !== id);
-      setIncidentes(newIncidentes);
-      updateIncidentesSeguridad(newIncidentes);
+  const openDeleteDialog = (id: string | number) => {
+    setDeletingId(id);
+    setIsDeleteOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!deletingId) return;
+
+    try {
+      await apiClient.delete(`/incidentesSeguridad/${deletingId}`);
+      setIncidentes(incidentes.filter(i => i.id !== deletingId));
       toast.success('Registro de Seguridad eliminado exitosamente');
+    } catch (error) {
+      toast.error('Error al eliminar el registro');
+    } finally {
+      setIsDeleteOpen(false);
+      setDeletingId(null);
     }
   };
+  
+  // Componente de formulario reutilizable
+  const IncidenteForm = () => (
+     <div className="space-y-4">
+        <div>
+          <Label htmlFor="proyecto">Proyecto</Label>
+          <Select value={formData.proyectoId} onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccione proyecto" />
+            </SelectTrigger>
+            <SelectContent>
+              {/* Usar estado 'proyectos' de API */}
+              {proyectos.map(p => (
+                <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="fecha">Fecha</Label>
+              <Input
+                id="fecha"
+                type="date"
+                value={formData.fecha}
+                onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="tipo">Tipo de Evento</Label>
+              <Select value={formData.tipo} onValueChange={(value) => setFormData({ ...formData, tipo: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Accidente">Accidente</SelectItem>
+                  <SelectItem value="Incidente">Incidente</SelectItem>
+                  <SelectItem value="Inspección">Inspección</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+        </div>
+        <div>
+          <Label htmlFor="responsable">Reportado / Responsable</Label>
+          <Input
+            id="responsable"
+            value={formData.responsable}
+            onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
+            placeholder="Ej: Jefe de Obra Juan Pérez"
+          />
+        </div>
+        <div>
+          <Label htmlFor="descripcion">Descripción</Label>
+          <Textarea
+            id="descripcion"
+            value={formData.descripcion}
+            onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+            placeholder="Detalle del evento, causas y acciones tomadas."
+            rows={4}
+          />
+        </div>
+      </div>
+  );
 
-  const accidentesCount = incidentes.filter(i => i.tipo === 'Accidente').length;
-  const inspeccionesCount = incidentes.filter(i => i.tipo === 'Inspección').length;
-
-  const renderTipoBadge = (tipo: IncidenteSeguridad['tipo']) => {
-    let variant: 'default' | 'destructive' | 'secondary' = 'secondary';
-    let icon: React.ReactNode;
-
-    switch (tipo) {
-      case 'Accidente':
-        variant = 'destructive';
-        icon = <AlertTriangle className="h-3 w-3 mr-1" />;
-        break;
-      case 'Incidente':
-        variant = 'default';
-        icon = <AlertTriangle className="h-3 w-3 mr-1" />;
-        break;
-      case 'Inspección':
-        variant = 'secondary';
-        icon = <ClipboardList className="h-3 w-3 mr-1" />;
-        break;
-    }
-    return <Badge variant={variant}>{icon}{tipo}</Badge>;
-  };
 
   return (
     <DashboardLayout>
@@ -192,64 +315,7 @@ const GestionSeguridad = () => {
               <DialogHeader>
                 <DialogTitle>Registrar Evento de Seguridad</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="proyecto">Proyecto</Label>
-                  <Select value={formData.proyectoId} onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione proyecto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockProyectos.map(p => (
-                        <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <Label htmlFor="fecha">Fecha</Label>
-                        <Input
-                            id="fecha"
-                            type="date"
-                            value={formData.fecha}
-                            onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-                        />
-                    </div>
-                    <div>
-                        <Label htmlFor="tipo">Tipo de Evento</Label>
-                        <Select value={formData.tipo} onValueChange={(value) => setFormData({ ...formData, tipo: value })}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Accidente">Accidente</SelectItem>
-                                <SelectItem value="Incidente">Incidente</SelectItem>
-                                <SelectItem value="Inspección">Inspección</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <div>
-                  <Label htmlFor="responsable">Reportado / Responsable</Label>
-                  <Input
-                    id="responsable"
-                    value={formData.responsable}
-                    onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
-                    placeholder="Ej: Jefe de Obra Juan Pérez"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="descripcion">Descripción</Label>
-                  <Textarea
-                    id="descripcion"
-                    value={formData.descripcion}
-                    onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                    placeholder="Detalle del evento, causas y acciones tomadas."
-                    rows={4}
-                  />
-                </div>
-              </div>
+              <IncidenteForm />
               <DialogFooter>
                 <Button variant="outline" onClick={() => handleCreateOpenChange(false)}>Cancelar</Button>
                 <Button onClick={handleCreate}>Registrar Evento</Button>
@@ -298,120 +364,87 @@ const GestionSeguridad = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Proyecto</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Responsable</TableHead>
-                    <TableHead className='w-1/3'>Descripción</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredIncidentes.map((i) => (
-                    <TableRow key={i.id}>
-                      <TableCell>{i.fecha}</TableCell>
-                      <TableCell>{getProjectName(i.proyectoId)}</TableCell>
-                      <TableCell>{renderTipoBadge(i.tipo)}</TableCell>
-                      <TableCell className="font-medium">{i.responsable}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-xs truncate">{i.descripcion}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleEdit(i)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            onClick={() => handleDelete(i.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+            {loading ? (
+              <p>Cargando registros...</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Proyecto</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Responsable</TableHead>
+                      <TableHead className='w-1/3'>Descripción</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredIncidentes.map((i) => (
+                      <TableRow key={i.id}>
+                        <TableCell>{i.fecha ? new Date(i.fecha).toLocaleDateString('es-ES') : "N/A"}</TableCell>
+                        <TableCell>{getProjectName(i.proyectoId)}</TableCell>
+                        <TableCell>{renderTipoBadge(i.tipo)}</TableCell>
+                        <TableCell className="font-medium">{i.responsable}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-xs truncate" title={i.descripcion}>{i.descripcion}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleEdit(i)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              onClick={() => openDeleteDialog(i.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Modal de Edición (Repetido de Creación con ajustes) */}
+        {/* Modal de Edición */}
         <Dialog open={isEditOpen} onOpenChange={handleEditOpenChange}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Editar Evento de Seguridad</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                  <Label htmlFor="edit-proyecto">Proyecto</Label>
-                  <Select value={formData.proyectoId} onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockProyectos.map(p => (
-                        <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <Label htmlFor="edit-fecha">Fecha</Label>
-                        <Input
-                            id="edit-fecha"
-                            type="date"
-                            value={formData.fecha}
-                            onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-                        />
-                    </div>
-                    <div>
-                        <Label htmlFor="edit-tipo">Tipo de Evento</Label>
-                        <Select value={formData.tipo} onValueChange={(value) => setFormData({ ...formData, tipo: value })}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Accidente">Accidente</SelectItem>
-                                <SelectItem value="Incidente">Incidente</SelectItem>
-                                <SelectItem value="Inspección">Inspección</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <div>
-                  <Label htmlFor="edit-responsable">Reportado / Responsable</Label>
-                  <Input
-                    id="edit-responsable"
-                    value={formData.responsable}
-                    onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-descripcion">Descripción</Label>
-                  <Textarea
-                    id="edit-descripcion"
-                    value={formData.descripcion}
-                    onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                    rows={4}
-                  />
-                </div>
-            </div>
+            <IncidenteForm />
             <DialogFooter>
               <Button variant="outline" onClick={() => handleEditOpenChange(false)}>Cancelar</Button>
               <Button onClick={handleUpdate}>Guardar Cambios</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        
+        {/* Modal de Confirmar Borrado */}
+        <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>¿Está seguro?</DialogTitle>
+              <DialogDescription>
+                Esta acción no se puede deshacer. Esto eliminará permanentemente
+                el registro de seguridad.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Cancelar</Button>
+              <Button variant="destructive" onClick={handleDelete}>Eliminar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </DashboardLayout>
   );
