@@ -59,15 +59,23 @@ const Solicitudes = () => {
   };
 
   // --- Lógica de Aprobación (API) ---
-
   const handleUpdateMaterial = async (id: string | number, nuevoEstado: SolicitudEstado) => {
+    // 1. Encontrar la solicitud original (comparando como string para evitar problemas de tipo)
+    const solicitudOriginal = solicitudesMateriales.find(s => String(s.id) === String(id));
+    if (!solicitudOriginal) {
+      toast.error("No se encontró la solicitud para actualizar.");
+      return;
+    }
+
+    // 2. Crear el payload completo
+    const payload: SolicitudMaterial = { ...solicitudOriginal, estado: nuevoEstado };
+
     try {
-      // 1. Llamar a la API para actualizar
-      const res = await apiClient.patch<SolicitudMaterial>(`/solicitudesMateriales/${id}`, { estado: nuevoEstado });
+      // 3. Usar apiClient.put con el payload completo
+      const res = await apiClient.put<SolicitudMaterial>(`/solicitudesMateriales/${id}`, payload);
       
-      // 2. Actualizar el estado local con la respuesta de la API
       setSolicitudesMateriales(prev => 
-        prev.map(s => (s.id === id ? res.data : s))
+        prev.map(s => (String(s.id) === String(id) ? res.data : s))
       );
       toast.success(`Solicitud de material ${nuevoEstado.toLowerCase()}`);
     } catch (error) {
@@ -77,13 +85,22 @@ const Solicitudes = () => {
   };
 
   const handleUpdateDinero = async (id: string | number, nuevoEstado: SolicitudEstado) => {
-    try {
-      // 1. Llamar a la API para actualizar
-      const res = await apiClient.patch<SolicitudDinero>(`/solicitudesDinero/${id}`, { estado: nuevoEstado });
+    // 1. Encontrar la solicitud original (comparando como string para evitar problemas de tipo)
+    const solicitudOriginal = solicitudesDinero.find(s => String(s.id) === String(id));
+    if (!solicitudOriginal) {
+      toast.error("No se encontró la solicitud para actualizar.");
+      return;
+    }
 
-      // 2. Actualizar el estado local con la respuesta de la API
+    // 2. Crear el payload completo
+    const payload: SolicitudDinero = { ...solicitudOriginal, estado: nuevoEstado };
+    
+    try {
+      // 3. Usar apiClient.put con el payload completo
+      const res = await apiClient.put<SolicitudDinero>(`/solicitudesDinero/${id}`, payload);
+
       setSolicitudesDinero(prev => 
-        prev.map(s => (s.id === id ? res.data : s))
+        prev.map(s => (String(s.id) === String(id) ? res.data : s))
       );
       toast.success(`Solicitud de dinero ${nuevoEstado.toLowerCase()}`);
     } catch (error) {
