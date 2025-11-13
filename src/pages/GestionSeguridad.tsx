@@ -1,5 +1,5 @@
 // src/pages/GestionSeguridad.tsx
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,107 @@ type IncidenteFormData = {
   responsable: string;
 };
 
+// --- Mover estado inicial fuera para acceso global ---
+const initialFormData: IncidenteFormData = {
+  proyectoId: '',
+  fecha: new Date().toISOString().split('T')[0],
+  tipo: 'Incidente',
+  descripcion: '',
+  responsable: '',
+};
+
+// ====================================================================
+// 1. EXTRAER EL FORMULARIO A SU PROPIO COMPONENTE
+// ====================================================================
+interface IncidenteFormProps {
+  formData: IncidenteFormData;
+  setFormData: React.Dispatch<React.SetStateAction<IncidenteFormData>>;
+  proyectos: Proyecto[];
+}
+
+const IncidenteForm = React.memo(({ formData, setFormData, proyectos }: IncidenteFormProps) => {
+  
+  // 2. CREAR MANEJADORES DE CAMBIO ESTABLES
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleSelectChange = (field: keyof IncidenteFormData) => (value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="proyecto">Proyecto</Label>
+        <Select 
+          value={formData.proyectoId} 
+          onValueChange={handleSelectChange('proyectoId')}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccione proyecto" />
+          </SelectTrigger>
+          <SelectContent>
+            {proyectos.map(p => (
+              <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="fecha">Fecha</Label>
+          <Input
+            id="fecha"
+            type="date"
+            value={formData.fecha}
+            onChange={handleInputChange}
+          />
+        </div>
+        <div>
+          <Label htmlFor="tipo">Tipo de Evento</Label>
+          <Select 
+            value={formData.tipo} 
+            onValueChange={handleSelectChange('tipo')}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Accidente">Accidente</SelectItem>
+              <SelectItem value="Incidente">Incidente</SelectItem>
+              <SelectItem value="Inspección">Inspección</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="responsable">Reportado / Responsable</Label>
+        <Input
+          id="responsable"
+          value={formData.responsable}
+          onChange={handleInputChange}
+          placeholder="Ej: Jefe de Obra Juan Pérez"
+        />
+      </div>
+      <div>
+        <Label htmlFor="descripcion">Descripción</Label>
+        <Textarea
+          id="descripcion"
+          value={formData.descripcion}
+          onChange={handleInputChange}
+          placeholder="Detalle del evento, causas y acciones tomadas."
+          rows={4}
+        />
+      </div>
+    </div>
+  );
+});
+
+// ====================================================================
+// 3. COMPONENTE PRINCIPAL (Ahora más limpio)
+// ====================================================================
 const GestionSeguridad = () => {
   // --- Estados de Datos (API) ---
   const [incidentes, setIncidentes] = useState<IncidenteSeguridad[]>([]);
@@ -61,13 +162,6 @@ const GestionSeguridad = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | number | null>(null);
 
-  const initialFormData: IncidenteFormData = {
-    proyectoId: '',
-    fecha: new Date().toISOString().split('T')[0],
-    tipo: 'Incidente',
-    descripcion: '',
-    responsable: '',
-  };
   const [formData, setFormData] = useState<IncidenteFormData>(initialFormData);
 
   // --- Carga de Datos (API) ---
@@ -231,69 +325,6 @@ const GestionSeguridad = () => {
       setDeletingId(null);
     }
   };
-  
-  // Componente de formulario reutilizable
-  const IncidenteForm = () => (
-     <div className="space-y-4">
-        <div>
-          <Label htmlFor="proyecto">Proyecto</Label>
-          <Select value={formData.proyectoId} onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccione proyecto" />
-            </SelectTrigger>
-            <SelectContent>
-              {/* Usar estado 'proyectos' de API */}
-              {proyectos.map(p => (
-                <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="fecha">Fecha</Label>
-              <Input
-                id="fecha"
-                type="date"
-                value={formData.fecha}
-                onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="tipo">Tipo de Evento</Label>
-              <Select value={formData.tipo} onValueChange={(value) => setFormData({ ...formData, tipo: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Accidente">Accidente</SelectItem>
-                  <SelectItem value="Incidente">Incidente</SelectItem>
-                  <SelectItem value="Inspección">Inspección</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-        </div>
-        <div>
-          <Label htmlFor="responsable">Reportado / Responsable</Label>
-          <Input
-            id="responsable"
-            value={formData.responsable}
-            onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
-            placeholder="Ej: Jefe de Obra Juan Pérez"
-          />
-        </div>
-        <div>
-          <Label htmlFor="descripcion">Descripción</Label>
-          <Textarea
-            id="descripcion"
-            value={formData.descripcion}
-            onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-            placeholder="Detalle del evento, causas y acciones tomadas."
-            rows={4}
-          />
-        </div>
-      </div>
-  );
 
 
   return (
@@ -315,7 +346,12 @@ const GestionSeguridad = () => {
               <DialogHeader>
                 <DialogTitle>Registrar Evento de Seguridad</DialogTitle>
               </DialogHeader>
-              <IncidenteForm />
+              {/* 4. USAR EL COMPONENTE EXTRAÍDO */}
+              <IncidenteForm
+                formData={formData}
+                setFormData={setFormData}
+                proyectos={proyectos}
+              />
               <DialogFooter>
                 <Button variant="outline" onClick={() => handleCreateOpenChange(false)}>Cancelar</Button>
                 <Button onClick={handleCreate}>Registrar Evento</Button>
@@ -420,7 +456,12 @@ const GestionSeguridad = () => {
             <DialogHeader>
               <DialogTitle>Editar Evento de Seguridad</DialogTitle>
             </DialogHeader>
-            <IncidenteForm />
+            {/* 4. USAR EL COMPONENTE EXTRAÍDO */}
+            <IncidenteForm
+              formData={formData}
+              setFormData={setFormData}
+              proyectos={proyectos}
+            />
             <DialogFooter>
               <Button variant="outline" onClick={() => handleEditOpenChange(false)}>Cancelar</Button>
               <Button onClick={handleUpdate}>Guardar Cambios</Button>

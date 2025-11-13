@@ -1,5 +1,5 @@
 // src/pages/GestionCompras.tsx
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,6 +46,120 @@ type OCFormData = {
   estado: string;
 };
 
+// --- Mover estado inicial fuera ---
+const initialFormData: OCFormData = {
+  proyectoId: '',
+  fechaPedido: new Date().toISOString().split('T')[0],
+  proveedor: '',
+  items: '',
+  montoTotal: '',
+  estado: 'Pendiente',
+};
+
+// ====================================================================
+// 1. EXTRAER EL FORMULARIO A SU PROPIO COMPONENTE
+// ====================================================================
+
+interface OCFormProps {
+  formData: OCFormData;
+  setFormData: React.Dispatch<React.SetStateAction<OCFormData>>;
+  proyectos: Proyecto[];
+}
+
+const OCForm = React.memo(({ formData, setFormData, proyectos }: OCFormProps) => {
+  
+  // 2. CREAR MANEJADORES DE CAMBIO ESTABLES
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleSelectChange = (field: keyof OCFormData) => (value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="proyecto">Proyecto</Label>
+        <Select 
+          value={formData.proyectoId} 
+          onValueChange={handleSelectChange('proyectoId')}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccione proyecto" />
+          </SelectTrigger>
+          <SelectContent>
+            {proyectos.map(p => (
+              <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="proveedor">Proveedor</Label>
+        <Input
+          id="proveedor"
+          value={formData.proveedor}
+          onChange={handleInputChange}
+          placeholder="Ej: Ferretería Central"
+        />
+      </div>
+      <div>
+        <Label htmlFor="items">Resumen de Items Solicitados</Label>
+        <Textarea
+          id="items"
+          value={formData.items}
+          onChange={handleInputChange}
+          placeholder="Ej: 50 sacos de Cemento, 10 toneladas de Arena"
+          rows={4}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="montoTotal">Monto Total ($)</Label>
+          <Input
+            id="montoTotal"
+            type="number"
+            value={formData.montoTotal}
+            onChange={handleInputChange}
+            placeholder="0.00"
+          />
+        </div>
+        <div>
+          <Label htmlFor="estado">Estado</Label>
+          <Select 
+            value={formData.estado} 
+            onValueChange={handleSelectChange('estado')}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Pendiente">Pendiente</SelectItem>
+              <SelectItem value="Emitida">Emitida</SelectItem>
+              <SelectItem value="Recibida">Recibida</SelectItem>
+              <SelectItem value="Cancelada">Cancelada</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+       <div>
+          <Label htmlFor="fechaPedido">Fecha de Pedido</Label>
+          <Input
+            id="fechaPedido"
+            type="date"
+            value={formData.fechaPedido}
+            onChange={handleInputChange}
+          />
+        </div>
+    </div>
+  );
+});
+
+// ====================================================================
+// 3. COMPONENTE PRINCIPAL (Ahora más limpio)
+// ====================================================================
 const GestionCompras = () => {
   // --- Estados de Datos (API) ---
   const [ordenesCompra, setOrdenesCompra] = useState<OrdenCompra[]>([]);
@@ -62,14 +176,6 @@ const GestionCompras = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | number | null>(null);
 
-  const initialFormData: OCFormData = {
-    proyectoId: '',
-    fechaPedido: new Date().toISOString().split('T')[0],
-    proveedor: '',
-    items: '',
-    montoTotal: '',
-    estado: 'Pendiente',
-  };
   const [formData, setFormData] = useState<OCFormData>(initialFormData);
 
   // --- Carga de Datos (API) ---
@@ -243,79 +349,6 @@ const GestionCompras = () => {
     }
   };
 
-  // Componente de formulario reutilizable
-  const OCForm = () => (
-    <div className="space-y-4">
-      <div>
-        <Label htmlFor="proyecto">Proyecto</Label>
-        <Select value={formData.proyectoId} onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}>
-          <SelectTrigger>
-            <SelectValue placeholder="Seleccione proyecto" />
-          </SelectTrigger>
-          <SelectContent>
-            {proyectos.map(p => (
-              <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label htmlFor="proveedor">Proveedor</Label>
-        <Input
-          id="proveedor"
-          value={formData.proveedor}
-          onChange={(e) => setFormData({ ...formData, proveedor: e.target.value })}
-          placeholder="Ej: Ferretería Central"
-        />
-      </div>
-      <div>
-        <Label htmlFor="items">Resumen de Items Solicitados</Label>
-        <Textarea
-          id="items"
-          value={formData.items}
-          onChange={(e) => setFormData({ ...formData, items: e.target.value })}
-          placeholder="Ej: 50 sacos de Cemento, 10 toneladas de Arena"
-          rows={4}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="montoTotal">Monto Total ($)</Label>
-          <Input
-            id="montoTotal"
-            type="number"
-            value={formData.montoTotal}
-            onChange={(e) => setFormData({ ...formData, montoTotal: e.target.value })}
-            placeholder="0.00"
-          />
-        </div>
-        <div>
-          <Label htmlFor="estado">Estado</Label>
-          <Select value={formData.estado} onValueChange={(value) => setFormData({ ...formData, estado: value })}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Pendiente">Pendiente</SelectItem>
-              <SelectItem value="Emitida">Emitida</SelectItem>
-              <SelectItem value="Recibida">Recibida</SelectItem>
-              <SelectItem value="Cancelada">Cancelada</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-       <div>
-          <Label htmlFor="fechaPedido">Fecha de Pedido</Label>
-          <Input
-            id="fechaPedido"
-            type="date"
-            value={formData.fechaPedido}
-            onChange={(e) => setFormData({ ...formData, fechaPedido: e.target.value })}
-          />
-        </div>
-    </div>
-  );
-
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -335,7 +368,12 @@ const GestionCompras = () => {
               <DialogHeader>
                 <DialogTitle>Registrar Nueva Orden de Compra</DialogTitle>
               </DialogHeader>
-              <OCForm />
+              {/* 4. USAR EL COMPONENTE EXTRAÍDO */}
+              <OCForm
+                formData={formData}
+                setFormData={setFormData}
+                proyectos={proyectos}
+              />
               <DialogFooter>
                 <Button variant="outline" onClick={() => handleCreateOpenChange(false)}>Cancelar</Button>
                 <Button onClick={handleCreate}>Registrar OC</Button>
@@ -441,7 +479,12 @@ const GestionCompras = () => {
             <DialogHeader>
               <DialogTitle>Editar Orden de Compra</DialogTitle>
             </DialogHeader>
-            <OCForm />
+            {/* 4. USAR EL COMPONENTE EXTRAÍDO */}
+            <OCForm
+              formData={formData}
+              setFormData={setFormData}
+              proyectos={proyectos}
+            />
             <DialogFooter>
               <Button variant="outline" onClick={() => handleEditOpenChange(false)}>Cancelar</Button>
               <Button onClick={handleUpdate}>Guardar Cambios</Button>

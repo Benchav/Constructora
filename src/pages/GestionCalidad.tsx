@@ -1,5 +1,5 @@
 // src/pages/GestionCalidad.tsx
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,107 @@ type InspeccionFormData = {
   observaciones: string;
 };
 
+// --- Mover estado inicial fuera ---
+const initialFormData: InspeccionFormData = {
+  proyectoId: '',
+  fecha: new Date().toISOString().split('T')[0],
+  fase: '',
+  resultado: 'Aprobado',
+  observaciones: '',
+};
+
+// ====================================================================
+// 1. EXTRAER EL FORMULARIO A SU PROPIO COMPONENTE
+// ====================================================================
+interface InspeccionFormProps {
+  formData: InspeccionFormData;
+  setFormData: React.Dispatch<React.SetStateAction<InspeccionFormData>>;
+  proyectos: Proyecto[];
+}
+
+const InspeccionForm = React.memo(({ formData, setFormData, proyectos }: InspeccionFormProps) => {
+
+  // 2. CREAR MANEJADORES DE CAMBIO ESTABLES
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleSelectChange = (field: keyof InspeccionFormData) => (value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+  
+  return (
+     <div className="space-y-4">
+        <div>
+          <Label htmlFor="proyecto">Proyecto</Label>
+          <Select 
+            value={formData.proyectoId} 
+            onValueChange={handleSelectChange('proyectoId')}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccione proyecto" />
+            </SelectTrigger>
+            <SelectContent>
+              {proyectos.map(p => (
+                <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="fase">Fase de Inspección</Label>
+          <Input
+            id="fase"
+            value={formData.fase}
+            onChange={handleInputChange}
+            placeholder="Ej: Fundición de Losa Nivel 2"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="fecha">Fecha</Label>
+              <Input
+                id="fecha"
+                type="date"
+                value={formData.fecha}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div>
+              <Label htmlFor="resultado">Resultado</Label>
+              <Select 
+                value={formData.resultado} 
+                onValueChange={handleSelectChange('resultado')}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Aprobado">Aprobado</SelectItem>
+                  <SelectItem value="Con Observaciones">Con Observaciones</SelectItem>
+                  <SelectItem value="Rechazado">Rechazado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+        </div>
+        <div>
+          <Label htmlFor="observaciones">Observaciones / Detalles</Label>
+          <Textarea
+            id="observaciones"
+            value={formData.observaciones}
+            onChange={handleInputChange}
+            placeholder="Describa los hallazgos y el cumplimiento de especificaciones."
+            rows={4}
+          />
+        </div>
+      </div>
+  );
+});
+
+// ====================================================================
+// 3. COMPONENTE PRINCIPAL (Ahora más limpio)
+// ====================================================================
 const GestionCalidad = () => {
   // --- Estados de Datos (API) ---
   const [inspecciones, setInspecciones] = useState<InspeccionCalidad[]>([]);
@@ -61,13 +162,6 @@ const GestionCalidad = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | number | null>(null);
 
-  const initialFormData: InspeccionFormData = {
-    proyectoId: '',
-    fecha: new Date().toISOString().split('T')[0],
-    fase: '',
-    resultado: 'Aprobado',
-    observaciones: '',
-  };
   const [formData, setFormData] = useState<InspeccionFormData>(initialFormData);
 
   // --- Carga de Datos (API) ---
@@ -228,69 +322,6 @@ const GestionCalidad = () => {
     }
   };
   
-  // Componente de formulario reutilizable
-  const InspeccionForm = () => (
-     <div className="space-y-4">
-        <div>
-          <Label htmlFor="proyecto">Proyecto</Label>
-          <Select value={formData.proyectoId} onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccione proyecto" />
-            </SelectTrigger>
-            <SelectContent>
-              {/* Usar estado 'proyectos' de API */}
-              {proyectos.map(p => (
-                <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="fase">Fase de Inspección</Label>
-          <Input
-            id="fase"
-            value={formData.fase}
-            onChange={(e) => setFormData({ ...formData, fase: e.target.value })}
-            placeholder="Ej: Fundición de Losa Nivel 2"
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="fecha">Fecha</Label>
-              <Input
-                id="fecha"
-                type="date"
-                value={formData.fecha}
-                onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="resultado">Resultado</Label>
-              <Select value={formData.resultado} onValueChange={(value) => setFormData({ ...formData, resultado: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Aprobado">Aprobado</SelectItem>
-                  <SelectItem value="Con Observaciones">Con Observaciones</SelectItem>
-                  <SelectItem value="Rechazado">Rechazado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-        </div>
-        <div>
-          <Label htmlFor="observaciones">Observaciones / Detalles</Label>
-          <Textarea
-            id="observaciones"
-            value={formData.observaciones}
-            onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-            placeholder="Describa los hallazgos y el cumplimiento de especificaciones."
-            rows={4}
-          />
-        </div>
-      </div>
-  );
-
 
   return (
     <DashboardLayout>
@@ -311,7 +342,12 @@ const GestionCalidad = () => {
               <DialogHeader>
                 <DialogTitle>Registrar Nueva Inspección</DialogTitle>
               </DialogHeader>
-              <InspeccionForm />
+              {/* 4. USAR EL COMPONENTE EXTRAÍDO */}
+              <InspeccionForm
+                formData={formData}
+                setFormData={setFormData}
+                proyectos={proyectos}
+              />
               <DialogFooter>
                 <Button variant="outline" onClick={() => handleCreateOpenChange(false)}>Cancelar</Button>
                 <Button onClick={handleCreate}>Registrar Inspección</Button>
@@ -416,7 +452,12 @@ const GestionCalidad = () => {
             <DialogHeader>
               <DialogTitle>Editar Inspección</DialogTitle>
             </DialogHeader>
-            <InspeccionForm />
+            {/* 4. USAR EL COMPONENTE EXTRAÍDO */}
+            <InspeccionForm
+              formData={formData}
+              setFormData={setFormData}
+              proyectos={proyectos}
+            />
             <DialogFooter>
               <Button variant="outline" onClick={() => handleEditOpenChange(false)}>Cancelar</Button>
               <Button onClick={handleUpdate}>Guardar Cambios</Button>

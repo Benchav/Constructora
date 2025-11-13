@@ -1,5 +1,5 @@
 // src/pages/GestionFinanzas.tsx
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,6 @@ import {
   DialogTrigger,
   DialogFooter,
   DialogDescription,
-  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -46,6 +45,118 @@ type FinanzaFormData = {
   fecha: string; // Formato YYYY-MM-DD
 };
 
+// --- Mover estado inicial fuera ---
+const initialFormData: FinanzaFormData = {
+  tipo: '',
+  proyectoId: '',
+  descripcion: '',
+  monto: '',
+  categoria: '',
+  fecha: new Date().toISOString().split('T')[0],
+};
+
+// ====================================================================
+// 1. EXTRAER EL FORMULARIO A SU PROPIO COMPONENTE
+// ====================================================================
+interface FinanzaFormProps {
+  formData: FinanzaFormData;
+  setFormData: React.Dispatch<React.SetStateAction<FinanzaFormData>>;
+  proyectos: Proyecto[];
+}
+
+const FinanzaForm = React.memo(({ formData, setFormData, proyectos }: FinanzaFormProps) => {
+
+  // 2. CREAR MANEJADORES DE CAMBIO ESTABLES
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleSelectChange = (field: keyof FinanzaFormData) => (value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="tipo">Tipo de Movimiento</Label>
+        <Select 
+          value={formData.tipo} 
+          onValueChange={handleSelectChange('tipo')}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccione tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Ingreso">Ingreso</SelectItem>
+            <SelectItem value="Costo">Costo</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="proyecto">Proyecto</Label>
+        <Select 
+          value={formData.proyectoId} 
+          onValueChange={handleSelectChange('proyectoId')}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccione proyecto" />
+          </SelectTrigger>
+          <SelectContent>
+            {proyectos.length > 0 ? (
+              proyectos.map(p => (
+                <SelectItem key={p.id} value={String(p.id)}>{p.nombre}</SelectItem>
+              ))
+            ) : (
+              <SelectItem value="" disabled>Cargando proyectos...</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="descripcion">Descripción</Label>
+        <Input
+          id="descripcion"
+          value={formData.descripcion}
+          onChange={handleInputChange}
+          placeholder="Ej: Pago de planilla quincenal"
+        />
+      </div>
+      <div>
+        <Label htmlFor="monto">Monto ($)</Label>
+        <Input
+          id="monto"
+          type="number"
+          value={formData.monto}
+          onChange={handleInputChange}
+          placeholder="0.00"
+        />
+      </div>
+      <div>
+        <Label htmlFor="categoria">Categoría (Opcional)</Label>
+        <Input
+          id="categoria"
+          value={formData.categoria}
+          onChange={handleInputChange}
+          placeholder="Ej: Materiales, Mano de Obra, Equipo"
+        />
+      </div>
+      <div>
+        <Label htmlFor="fecha">Fecha</Label>
+        <Input
+          id="fecha"
+          type="date"
+          value={formData.fecha}
+          onChange={handleInputChange}
+        />
+      </div>
+    </div>
+  );
+});
+
+// ====================================================================
+// 3. COMPONENTE PRINCIPAL (Ahora más limpio)
+// ====================================================================
 const GestionFinanzas = () => {
   const [finanzas, setFinanzas] = useState<Finanza[]>([]);
   const [proyectos, setProyectos] = useState<Proyecto[]>([]); // Estado para los proyectos
@@ -60,14 +171,6 @@ const GestionFinanzas = () => {
   const [editingFinanza, setEditingFinanza] = useState<Finanza | null>(null);
   const [deletingId, setDeletingId] = useState<string | number | null>(null);
 
-  const initialFormData: FinanzaFormData = {
-    tipo: '',
-    proyectoId: '',
-    descripcion: '',
-    monto: '',
-    categoria: '',
-    fecha: new Date().toISOString().split('T')[0],
-  };
   const [formData, setFormData] = useState<FinanzaFormData>(initialFormData);
 
   // Cargar Finanzas y Proyectos (para el <Select>)
@@ -81,8 +184,8 @@ const GestionFinanzas = () => {
           apiClient.get<Proyecto[]>('/proyectos') // Necesario para el dropdown
         ]);
         
-        setFinanzas(resFinanzas.data);
-        setProyectos(resProyectos.data);
+        setFinanzas(Array.isArray(resFinanzas.data) ? resFinanzas.data : []);
+        setProyectos(Array.isArray(resProyectos.data) ? resProyectos.data : []);
 
       } catch (error) {
         toast.error('No se pudieron cargar los datos iniciales');
@@ -208,79 +311,6 @@ const GestionFinanzas = () => {
     }
   };
 
-  // Componente del formulario (reutilizable para crear y editar)
-  const FinanzaForm = () => (
-    <div className="space-y-4">
-      <div>
-        <Label htmlFor="tipo">Tipo de Movimiento</Label>
-        <Select value={formData.tipo} onValueChange={(value) => setFormData({ ...formData, tipo: value as "Ingreso" | "Costo" })}>
-          <SelectTrigger>
-            <SelectValue placeholder="Seleccione tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Ingreso">Ingreso</SelectItem>
-            <SelectItem value="Costo">Costo</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label htmlFor="proyecto">Proyecto</Label>
-        <Select value={formData.proyectoId} onValueChange={(value) => setFormData({ ...formData, proyectoId: value })}>
-          <SelectTrigger>
-            <SelectValue placeholder="Seleccione proyecto" />
-          </SelectTrigger>
-          <SelectContent>
-            {proyectos.length > 0 ? (
-              proyectos.map(p => (
-                <SelectItem key={p.id} value={String(p.id)}>{p.nombre}</SelectItem>
-              ))
-            ) : (
-              <SelectItem value="" disabled>Cargando proyectos...</SelectItem>
-            )}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label htmlFor="descripcion">Descripción</Label>
-        <Input
-          id="descripcion"
-          value={formData.descripcion}
-          onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-          placeholder="Ej: Pago de planilla quincenal"
-        />
-      </div>
-      <div>
-        <Label htmlFor="monto">Monto ($)</Label>
-        <Input
-          id="monto"
-          type="number"
-          value={formData.monto}
-          onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
-          placeholder="0.00"
-        />
-      </div>
-      <div>
-        <Label htmlFor="categoria">Categoría (Opcional)</Label>
-        <Input
-          id="categoria"
-          value={formData.categoria}
-          onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
-          placeholder="Ej: Materiales, Mano de Obra, Equipo"
-        />
-      </div>
-      <div>
-        <Label htmlFor="fecha">Fecha</Label>
-        <Input
-          id="fecha"
-          type="date"
-          value={formData.fecha}
-          onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-        />
-      </div>
-    </div>
-  );
-
-
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -300,7 +330,12 @@ const GestionFinanzas = () => {
               <DialogHeader>
                 <DialogTitle>Registrar Movimiento Financiero</DialogTitle>
               </DialogHeader>
-              <FinanzaForm />
+              {/* 4. USAR EL COMPONENTE EXTRAÍDO */}
+              <FinanzaForm
+                formData={formData}
+                setFormData={setFormData}
+                proyectos={proyectos}
+              />
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
                 <Button onClick={handleCreate}>Registrar</Button>
@@ -430,7 +465,12 @@ const GestionFinanzas = () => {
             <DialogHeader>
               <DialogTitle>Editar Movimiento</DialogTitle>
             </DialogHeader>
-            <FinanzaForm />
+            {/* 4. USAR EL COMPONENTE EXTRAÍDO */}
+            <FinanzaForm
+              formData={formData}
+              setFormData={setFormData}
+              proyectos={proyectos}
+            />
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancelar</Button>
               <Button onClick={handleUpdate}>Guardar Cambios</Button>

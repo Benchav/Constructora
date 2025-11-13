@@ -1,5 +1,5 @@
 // src/pages/GestionRRHH.tsx
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,88 @@ type EmpleadoFormData = {
   salario: string;
 };
 
+// --- Mover estado inicial fuera ---
+const initialFormData: EmpleadoFormData = {
+  nombre: '',
+  puesto: '',
+  proyectoAsignadoId: '',
+  salario: '',
+};
+
+// ====================================================================
+// 1. EXTRAER EL FORMULARIO A SU PROPIO COMPONENTE
+// ====================================================================
+interface EmpleadoFormProps {
+  formData: EmpleadoFormData;
+  setFormData: React.Dispatch<React.SetStateAction<EmpleadoFormData>>;
+  proyectos: Proyecto[];
+}
+
+const EmpleadoForm = React.memo(({ formData, setFormData, proyectos }: EmpleadoFormProps) => {
+
+  // 2. CREAR MANEJADORES DE CAMBIO ESTABLES
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleSelectChange = (value: string) => {
+    setFormData(prev => ({ ...prev, proyectoAsignadoId: value }));
+  };
+  
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="nombre">Nombre Completo</Label>
+        <Input
+          id="nombre"
+          value={formData.nombre}
+          onChange={handleInputChange} // Usar manejador estable
+          placeholder="Ej: Juan Pérez"
+        />
+      </div>
+      <div>
+        <Label htmlFor="puesto">Puesto</Label>
+        <Input
+          id="puesto"
+          value={formData.puesto}
+          onChange={handleInputChange} // Usar manejador estable
+          placeholder="Ej: Albañil, Electricista, Operador"
+        />
+      </div>
+      <div>
+        <Label htmlFor="proyecto">Proyecto Asignado</Label>
+        <Select 
+          value={formData.proyectoAsignadoId} 
+          onValueChange={handleSelectChange} // Usar manejador estable
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccione un proyecto" />
+          </SelectTrigger>
+          <SelectContent>
+            {proyectos.map(p => (
+              <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="salario">Salario Mensual ($)</Label>
+        <Input
+          id="salario"
+          type="number"
+          value={formData.salario}
+          onChange={handleInputChange} // Usar manejador estable
+          placeholder="0.00"
+        />
+      </div>
+    </div>
+  );
+});
+
+// ====================================================================
+// 3. COMPONENTE PRINCIPAL (Ahora más limpio)
+// ====================================================================
 const GestionRRHH = () => {
   // --- Estados de Datos (API) ---
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
@@ -58,12 +140,6 @@ const GestionRRHH = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const initialFormData: EmpleadoFormData = {
-    nombre: '',
-    puesto: '',
-    proyectoAsignadoId: '',
-    salario: '',
-  };
   const [formData, setFormData] = useState<EmpleadoFormData>(initialFormData);
 
   // --- Carga de Datos (API) ---
@@ -201,53 +277,6 @@ const GestionRRHH = () => {
     }
   };
   
-  // Componente de formulario reutilizable
-  const EmpleadoForm = () => (
-    <div className="space-y-4">
-      <div>
-        <Label htmlFor="nombre">Nombre Completo</Label>
-        <Input
-          id="nombre"
-          value={formData.nombre}
-          onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-          placeholder="Ej: Juan Pérez"
-        />
-      </div>
-      <div>
-        <Label htmlFor="puesto">Puesto</Label>
-        <Input
-          id="puesto"
-          value={formData.puesto}
-          onChange={(e) => setFormData({ ...formData, puesto: e.target.value })}
-          placeholder="Ej: Albañil, Electricista, Operador"
-        />
-      </div>
-      <div>
-        <Label htmlFor="proyecto">Proyecto Asignado</Label>
-        <Select value={formData.proyectoAsignadoId} onValueChange={(value) => setFormData({ ...formData, proyectoAsignadoId: value })}>
-          <SelectTrigger>
-            <SelectValue placeholder="Seleccione un proyecto" />
-          </SelectTrigger>
-          <SelectContent>
-            {/* Usar estado 'proyectos' de API */}
-            {proyectos.map(p => (
-              <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label htmlFor="salario">Salario Mensual ($)</Label>
-        <Input
-          id="salario"
-          type="number"
-          value={formData.salario}
-          onChange={(e) => setFormData({ ...formData, salario: e.target.value })}
-          placeholder="0.00"
-        />
-      </div>
-    </div>
-  );
 
   return (
     <DashboardLayout>
@@ -268,7 +297,12 @@ const GestionRRHH = () => {
               <DialogHeader>
                 <DialogTitle>Agregar Nuevo Empleado</DialogTitle>
               </DialogHeader>
-              <EmpleadoForm />
+              {/* 4. USAR EL COMPONENTE EXTRAÍDO */}
+              <EmpleadoForm
+                formData={formData}
+                setFormData={setFormData}
+                proyectos={proyectos}
+              />
               <DialogFooter>
                 <Button variant="outline" onClick={() => handleCreateOpenChange(false)}>Cancelar</Button>
                 <Button onClick={handleCreate}>Agregar Empleado</Button>
@@ -373,7 +407,12 @@ const GestionRRHH = () => {
             <DialogHeader>
               <DialogTitle>Editar Empleado</DialogTitle>
             </DialogHeader>
-            <EmpleadoForm />
+            {/* 4. USAR EL COMPONENTE EXTRAÍDO */}
+            <EmpleadoForm
+              formData={formData}
+              setFormData={setFormData}
+              proyectos={proyectos}
+            />
             <DialogFooter>
               <Button variant="outline" onClick={() => handleEditOpenChange(false)}>Cancelar</Button>
               <Button onClick={handleUpdate}>Guardar Cambios</Button>

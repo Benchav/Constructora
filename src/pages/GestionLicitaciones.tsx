@@ -1,5 +1,5 @@
 // src/pages/GestionLicitaciones.tsx
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,88 @@ type LicitacionFormData = {
   fechaLimite: string;
 };
 
+// --- Mover estado inicial fuera ---
+const initialFormData: LicitacionFormData = {
+  nombre: '',
+  estado: 'En Preparacion', // Estado por defecto
+  monto: '',
+  fechaLimite: '',
+};
+
+// ====================================================================
+// 1. EXTRAER EL FORMULARIO A SU PROPIO COMPONENTE
+// ====================================================================
+interface LicitacionFormProps {
+  formData: LicitacionFormData;
+  setFormData: React.Dispatch<React.SetStateAction<LicitacionFormData>>;
+}
+
+const LicitacionForm = React.memo(({ formData, setFormData }: LicitacionFormProps) => {
+
+  // 2. CREAR MANEJADORES DE CAMBIO ESTABLES
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleSelectChange = (value: string) => {
+    setFormData(prev => ({ ...prev, estado: value }));
+  };
+  
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="nombre">Nombre del Proyecto</Label>
+        <Input
+          id="nombre"
+          value={formData.nombre}
+          onChange={handleInputChange} // Usar manejador estable
+          placeholder="Ej: Hospital Regional"
+        />
+      </div>
+      <div>
+        <Label htmlFor="estado">Estado</Label>
+        <Select 
+          value={formData.estado} 
+          onValueChange={handleSelectChange} // Usar manejador estable
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccione estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="En Preparacion">En Preparación</SelectItem>
+            <SelectItem value="Presentada">Presentada</SelectItem>
+            <SelectItem value="Ganada">Ganada</SelectItem>
+            <SelectItem value="Perdida">Perdida</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="monto">Monto de la Propuesta ($)</Label>
+        <Input
+          id="monto"
+          type="number"
+          value={formData.monto}
+          onChange={handleInputChange} // Usar manejador estable
+          placeholder="0.00"
+        />
+      </div>
+      <div>
+        <Label htmlFor="fechaLimite">Fecha Límite (Opcional)</Label>
+        <Input
+          id="fechaLimite"
+          type="date"
+          value={formData.fechaLimite}
+          onChange={handleInputChange} // Usar manejador estable
+        />
+      </div>
+    </div>
+  );
+});
+
+// ====================================================================
+// 3. COMPONENTE PRINCIPAL (Ahora más limpio)
+// ====================================================================
 const GestionLicitaciones = () => {
   // --- Estados de Datos (API) ---
   const [licitaciones, setLicitaciones] = useState<Licitacion[]>([]);
@@ -58,12 +140,6 @@ const GestionLicitaciones = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | number | null>(null);
 
-  const initialFormData: LicitacionFormData = {
-    nombre: '',
-    estado: 'En Preparacion', // Estado por defecto
-    monto: '',
-    fechaLimite: '',
-  };
   const [formData, setFormData] = useState<LicitacionFormData>(initialFormData);
 
   // --- Carga de Datos (API) ---
@@ -189,53 +265,6 @@ const GestionLicitaciones = () => {
     }
   };
   
-  // Componente de formulario reutilizable
-  const LicitacionForm = () => (
-    <div className="space-y-4">
-      <div>
-        <Label htmlFor="nombre">Nombre del Proyecto</Label>
-        <Input
-          id="nombre"
-          value={formData.nombre}
-          onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-          placeholder="Ej: Hospital Regional"
-        />
-      </div>
-      <div>
-        <Label htmlFor="estado">Estado</Label>
-        <Select value={formData.estado} onValueChange={(value) => setFormData({ ...formData, estado: value })}>
-          <SelectTrigger>
-            <SelectValue placeholder="Seleccione estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="En Preparacion">En Preparación</SelectItem>
-            <SelectItem value="Presentada">Presentada</SelectItem>
-            <SelectItem value="Ganada">Ganada</SelectItem>
-            <SelectItem value="Perdida">Perdida</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label htmlFor="monto">Monto de la Propuesta ($)</Label>
-        <Input
-          id="monto"
-          type="number"
-          value={formData.monto}
-          onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
-          placeholder="0.00"
-        />
-      </div>
-      <div>
-        <Label htmlFor="fechaLimite">Fecha Límite (Opcional)</Label>
-        <Input
-          id="fechaLimite"
-          type="date"
-          value={formData.fechaLimite}
-          onChange={(e) => setFormData({ ...formData, fechaLimite: e.target.value })}
-        />
-      </div>
-    </div>
-  );
 
   return (
     <DashboardLayout>
@@ -256,7 +285,11 @@ const GestionLicitaciones = () => {
               <DialogHeader>
                 <DialogTitle>Registrar Nueva Licitación</DialogTitle>
               </DialogHeader>
-              <LicitacionForm />
+              {/* 4. USAR EL COMPONENTE EXTRAÍDO */}
+              <LicitacionForm
+                formData={formData}
+                setFormData={setFormData}
+              />
               <DialogFooter>
                 <Button variant="outline" onClick={() => handleCreateOpenChange(false)}>Cancelar</Button>
                 <Button onClick={handleCreate}>Registrar</Button>
@@ -387,7 +420,11 @@ const GestionLicitaciones = () => {
             <DialogHeader>
               <DialogTitle>Editar Licitación</DialogTitle>
             </DialogHeader>
-            <LicitacionForm />
+            {/* 4. USAR EL COMPONENTE EXTRAÍDO */}
+            <LicitacionForm
+              formData={formData}
+              setFormData={setFormData}
+            />
             <DialogFooter>
               <Button variant="outline" onClick={() => handleEditOpenChange(false)}>Cancelar</Button>
               <Button onClick={handleUpdate}>Guardar Cambios</Button>
