@@ -104,22 +104,35 @@ const GestionUsuarios = () => {
     setIsEditOpen(open);
   };
 
+
   const handleCreate = async () => {
     if (!formData.nombre || !formData.rol || !formData.username || !formData.password) {
       toast.error('Por favor complete todos los campos requeridos');
       return;
     }
     try {
+      // 1. Obtenemos el ID y el objeto Proyecto
       const proyectoIdInt = formData.proyectoAsignadoId && formData.proyectoAsignadoId !== 'none'
         ? parseInt(formData.proyectoAsignadoId)
+        : undefined;
+      
+      const proyectoAsignado = proyectoIdInt
+        ? proyectos.find(p => p.id === proyectoIdInt)
         : undefined;
 
       const newUserPayload = { ...formData, proyectoAsignadoId: proyectoIdInt };
 
-
+      // 2. Llamamos a la API (res.data probablemente no incluye el objeto 'proyecto')
       const res = await apiClient.post<UsuarioFull>('/usuarios', newUserPayload);
       
-      setUsuarios([...usuarios, res.data]); 
+      // 3. Creamos el objeto completo para nuestro estado
+      const nuevoUsuarioParaState: UsuarioFull = {
+        ...res.data,
+        proyecto: proyectoAsignado // <-- ¡Aquí está la corrección!
+      };
+
+      // 4. Actualizamos el estado con el objeto completo
+      setUsuarios([...usuarios, nuevoUsuarioParaState]); 
       handleCreateOpenChange(false);
       toast.success('Usuario creado exitosamente');
     } catch (error: any) {
@@ -139,11 +152,16 @@ const GestionUsuarios = () => {
     handleEditOpenChange(true);
   };
 
-  const handleUpdate = async () => {
+const handleUpdate = async () => {
     if (!editingUser) return;
     try {
+      // 1. Obtenemos el ID y el objeto Proyecto
       const proyectoIdInt = formData.proyectoAsignadoId && formData.proyectoAsignadoId !== 'none'
         ? parseInt(formData.proyectoAsignadoId)
+        : undefined;
+
+      const proyectoAsignado = proyectoIdInt
+        ? proyectos.find(p => p.id === proyectoIdInt)
         : undefined;
       
       const updatedData: any = {
@@ -154,10 +172,17 @@ const GestionUsuarios = () => {
       };
       if (formData.password) updatedData.password = formData.password;
 
-
+      // 2. Llamamos a la API (res.data probablemente no incluye el objeto 'proyecto')
       const res = await apiClient.put<UsuarioFull>(`/usuarios/${editingUser.id}`, updatedData);
       
-      setUsuarios(usuarios.map(u => (u.id === editingUser.id ? res.data : u))); 
+      // 3. Creamos el objeto completo para nuestro estado
+      const updatedUsuarioParaState: UsuarioFull = {
+        ...res.data,
+        proyecto: proyectoAsignado // <-- ¡Aquí está la corrección!
+      };
+
+      // 4. Actualizamos el estado con el objeto completo
+      setUsuarios(usuarios.map(u => (u.id === editingUser.id ? updatedUsuarioParaState : u))); 
       handleEditOpenChange(false);
       toast.success('Usuario actualizado exitosamente');
     } catch (error: any) {
