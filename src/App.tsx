@@ -26,6 +26,7 @@ import GestionCompras from './pages/GestionCompras';
 import GestionCalidad from './pages/GestionCalidad';
 import GestionSeguridad from './pages/GestionSeguridad';
 import NotFound from './pages/NotFound';
+import Portafolio from './pages/Portafolio';
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ const ROLES = {
 const ROUTE_ROLES = {
   dashboard: [ROLES.CEO, ROLES.GERENTE_GENERAL, ROLES.DIR_PROYECTOS, ROLES.DIR_FINANZAS, ROLES.DIR_COMERCIAL, ROLES.JEFE_OT],
   proyectos: [ROLES.CEO, ROLES.GERENTE_GENERAL, ROLES.DIR_PROYECTOS],
+  portafolio: [ROLES.CEO, ROLES.GERENTE_GENERAL],
   miProyecto: [ROLES.JEFE_OBRA, ROLES.MAESTRO_OBRA],
   usuarios: [ROLES.CEO, ROLES.GERENTE_GENERAL],
   inventario: [ROLES.JEFE_OBRA, ROLES.BODEGUERO],
@@ -86,6 +88,10 @@ const App = () => (
             <Route
               path="/proyectos"
               element={<ProtectedRoute roles={ROUTE_ROLES.proyectos}><Proyectos /></ProtectedRoute>}
+            />
+            <Route
+              path="/portafolio"
+              element={<ProtectedRoute roles={ROUTE_ROLES.portafolio}><Portafolio /></ProtectedRoute>}
             />
             <Route
               path="/proyecto/:id"

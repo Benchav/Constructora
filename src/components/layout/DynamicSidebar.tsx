@@ -16,6 +16,7 @@ import {
   Truck,
   Shield,
   CheckCircle,
+  Trophy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -33,6 +34,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['CEO', 'Gerente General', 'Director de Proyectos', 'Director Finanzas', 'Director Comercial', 'Jefe Oficina Tecnica'] },
   { label: 'Todos los Proyectos', path: '/proyectos', icon: Building2, roles: ['CEO', 'Gerente General', 'Director de Proyectos'] },
+  { label: 'Portafolio', path: '/portafolio', icon: Trophy, roles: ['CEO', 'Gerente General'] },
   { label: 'Mi Proyecto', path: '/mi-proyecto', icon: HardHat, roles: ['Jefe de Obra', 'Maestro de Obra'] },
   { label: 'Finanzas', path: '/finanzas', icon: DollarSign, roles: ['CEO', 'Gerente General', 'Director Finanzas', 'Asistente Administrativo'] },
   { label: 'Órdenes de Compra', path: '/compras', icon: Truck, roles: ['CEO', 'Gerente General', 'Jefe de Logística'] },
