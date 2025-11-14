@@ -111,7 +111,7 @@ const GestionUsuarios = () => {
       return;
     }
     try {
-      // 1. Obtenemos el ID y el objeto Proyecto
+     
       const proyectoIdInt = formData.proyectoAsignadoId && formData.proyectoAsignadoId !== 'none'
         ? parseInt(formData.proyectoAsignadoId)
         : undefined;
@@ -122,16 +122,16 @@ const GestionUsuarios = () => {
 
       const newUserPayload = { ...formData, proyectoAsignadoId: proyectoIdInt };
 
-      // 2. Llamamos a la API (res.data probablemente no incluye el objeto 'proyecto')
+     
       const res = await apiClient.post<UsuarioFull>('/usuarios', newUserPayload);
       
-      // 3. Creamos el objeto completo para nuestro estado
+      
       const nuevoUsuarioParaState: UsuarioFull = {
         ...res.data,
-        proyecto: proyectoAsignado // <-- ¡Aquí está la corrección!
+        proyecto: proyectoAsignado 
       };
 
-      // 4. Actualizamos el estado con el objeto completo
+    
       setUsuarios([...usuarios, nuevoUsuarioParaState]); 
       handleCreateOpenChange(false);
       toast.success('Usuario creado exitosamente');
@@ -155,7 +155,7 @@ const GestionUsuarios = () => {
 const handleUpdate = async () => {
     if (!editingUser) return;
     try {
-      // 1. Obtenemos el ID y el objeto Proyecto
+      
       const proyectoIdInt = formData.proyectoAsignadoId && formData.proyectoAsignadoId !== 'none'
         ? parseInt(formData.proyectoAsignadoId)
         : undefined;
@@ -172,16 +172,16 @@ const handleUpdate = async () => {
       };
       if (formData.password) updatedData.password = formData.password;
 
-      // 2. Llamamos a la API (res.data probablemente no incluye el objeto 'proyecto')
+      
       const res = await apiClient.put<UsuarioFull>(`/usuarios/${editingUser.id}`, updatedData);
       
-      // 3. Creamos el objeto completo para nuestro estado
+      
       const updatedUsuarioParaState: UsuarioFull = {
         ...res.data,
-        proyecto: proyectoAsignado // <-- ¡Aquí está la corrección!
+        proyecto: proyectoAsignado 
       };
 
-      // 4. Actualizamos el estado con el objeto completo
+      
       setUsuarios(usuarios.map(u => (u.id === editingUser.id ? updatedUsuarioParaState : u))); 
       handleEditOpenChange(false);
       toast.success('Usuario actualizado exitosamente');
