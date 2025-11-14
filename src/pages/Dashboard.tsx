@@ -73,7 +73,8 @@ const Dashboard = () => {
 
   const canViewDashboard = (() => {
     if (!user) return false;
-    if ((user.rol || '').toString().toLowerCase().includes('ceo')) return true;
+   const userRole = (user.rol || '').toString().toLowerCase();
+    if (userRole.includes('ceo') || userRole.includes('gerente general')) return true;
     const módulosClave = ['proyectos', 'reportes', 'finanzas'];
     return módulosClave.some((m) => canAccess(m));
   })();

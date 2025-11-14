@@ -43,7 +43,7 @@ export const ProtectedRoute = ({ children, roles }: ProtectedRouteProps) => {
   const rolesNorm = roles.map(normalize);
 
   // CEO tiene acceso total
-  if (userRol === 'ceo') return <>{children}</>;
+  if (userRol === 'ceo' || userRol === 'gerente general') return <>{children}</>;
 
   // Si el rol está explícitamente permitido para la ruta
   if (rolesNorm.includes(userRol)) return <>{children}</>;

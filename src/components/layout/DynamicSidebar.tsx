@@ -1,4 +1,3 @@
-// src/components/DynamicSidebar.tsx
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -20,7 +19,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// 🔧 Función auxiliar para evitar problemas de mayúsculas/tildes
+
 const normalize = (text?: string) =>
   (text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
@@ -52,7 +51,7 @@ const navItems: NavItem[] = [
 export const DynamicSidebar = () => {
   const { user, loading } = useAuth();
 
-  // ⏳ Evitar que la sidebar desaparezca mientras verificamos sesión
+
   if (loading) {
     return (
       <aside className="h-full bg-sidebar border-r flex items-center justify-center">
@@ -61,13 +60,13 @@ export const DynamicSidebar = () => {
     );
   }
 
-  if (!user) return null; // Si no hay sesión, no mostramos menú
+  if (!user) return null; 
 
   const userRolNorm = normalize(user.rol);
 
-  // ✅ Si es CEO, mostrar todo
+
   const filteredItems =
-    userRolNorm === 'ceo'
+  userRolNorm === 'ceo' || userRolNorm === 'gerente general'
       ? navItems
       : navItems.filter(item =>
           item.roles.some(r => normalize(r) === userRolNorm)

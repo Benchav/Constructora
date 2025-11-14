@@ -136,7 +136,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const canAccess = useCallback((routeOrModule: string) => {
     if (!user) return false;
     const userRole = normalize(user.rol);
-    if (userRole === 'ceo') return true;
+   if (userRole === 'ceo' || userRole === 'gerente general') return true;
     const moduleKey = normalize(routeOrModule);
 
     // Si no existe la clave, no permitir.
