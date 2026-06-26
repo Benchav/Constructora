@@ -3,7 +3,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 
 const apiClient = axios.create({
-  baseURL: 'https://api-constructora.vercel.app/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://api-constructora.vercel.app/api',
   headers: {
     'Content-Type': 'application/json',
   },
