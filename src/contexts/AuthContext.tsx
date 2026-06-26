@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 
 export interface AuthContextType {
   user: Usuario | null;
-  token: string | null;
   login: (username: string, password: string) => Promise<Usuario | null>;
   logout: () => void;
   isAuthenticated: boolean;
@@ -21,7 +20,6 @@ const normalize = (text?: string) =>
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<Usuario | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Lista de roles aceptados (normalizados). Manténla sincronizada con backend.
@@ -61,18 +59,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    // Carga inicial desde localStorage
-    const storedToken = localStorage.getItem('token');
+    // Carga inicial desde localStorage (solo usuario, el token va en cookie)
     const storedUser = localStorage.getItem('user');
 
-    if (storedToken && storedUser) {
-      setToken(storedToken);
+    if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
         parsedUser.rol = normalize(parsedUser.rol);
         setUser(parsedUser);
-        // aseguramos que apiClient tenga el header por defecto
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
       } catch {
         setUser(null);
       }
@@ -82,12 +76,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (username: string, password: string): Promise<Usuario | null> => {
     try {
-      const { data } = await apiClient.post<{ token: string; usuario: Usuario }>('/auth/login', {
+      const { data } = await apiClient.post<{ usuario: Usuario }>('/auth/login', {
         username,
         password,
       });
 
-      const { token: newToken, usuario: userData } = data;
+      // El token ya viene en una cookie HttpOnly. 
+      // Si el backend envía `user` en vez de `usuario`:
+      const userData = (data as any).user || data.usuario;
 
       if (!userData || !userData.rol) {
         toast.error('Usuario sin rol válido');
@@ -102,12 +98,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const userToStore = { ...userData, rol: normalizedRole };
 
-      // Guardar y setear
-      localStorage.setItem('token', newToken);
+      // Guardar solo usuario
       localStorage.setItem('user', JSON.stringify(userToStore));
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
 
-      setToken(newToken);
       setUser(userToStore);
 
       toast.success(`Bienvenido, ${userToStore.nombre || userToStore.username || ''}`);
@@ -120,17 +113,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await apiClient.post('/auth/logout');
+    } catch(e) {}
+    
     setUser(null);
-    setToken(null);
-    localStorage.removeItem('token');
     localStorage.removeItem('user');
-    delete apiClient.defaults.headers.common['Authorization'];
     toast.info('Sesión cerrada');
     window.location.href = '/';
   };
 
-  const isAuthenticated = !!token && !!user;
+  const isAuthenticated = !!user;
 
   // Función pública para chequear si el usuario puede acceder a un módulo o ruta
   const canAccess = useCallback((routeOrModule: string) => {
@@ -146,7 +140,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated, loading, canAccess }}>
+    <AuthContext.Provider value={{ user, login, logout, isAuthenticated, loading, canAccess } as any}>
       {children}
     </AuthContext.Provider>
   );
