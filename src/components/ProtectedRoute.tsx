@@ -21,7 +21,7 @@ export const ProtectedRoute = ({ children, roles }: ProtectedRouteProps) => {
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
-  const { token, user, loading, canAccess } = auth;
+  const { user, loading, canAccess, isAuthenticated } = auth;
 
   // Si el contexto todavía está cargando, mostramos un loader pequeño para evitar
   // redirecciones prematuras (esto evita que desaparezca la sidebar momentáneamente).
@@ -34,7 +34,7 @@ export const ProtectedRoute = ({ children, roles }: ProtectedRouteProps) => {
   }
 
   // No autenticado: ir a login
-  if (!token || !user) {
+  if (!isAuthenticated || !user) {
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
