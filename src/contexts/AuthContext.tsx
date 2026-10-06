@@ -100,6 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Guardar solo usuario
       localStorage.setItem('user', JSON.stringify(userToStore));
+      if ((data as any).token) { localStorage.setItem('token', (data as any).token); }
 
       setUser(userToStore);
 
@@ -120,6 +121,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     setUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
     toast.info('Sesión cerrada');
     window.location.href = '/';
   };

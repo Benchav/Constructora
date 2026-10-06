@@ -13,6 +13,15 @@ const apiClient = axios.create({
 // Eliminado el interceptor que inyectaba el token desde localStorage
 // Ahora el backend usa Cookies HttpOnly que se envían automáticamente
 
+// Interceptor para enviar Bearer token como fallback si las cookies cross-site son bloqueadas por el navegador
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // Respuesta: no redirigir/limpiar automáticamente aquí (lo hacemos en AuthContext si queremos)
 apiClient.interceptors.response.use(
   (res) => res,
