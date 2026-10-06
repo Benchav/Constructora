@@ -35,6 +35,14 @@ apiClient.interceptors.response.use(
     } else if (err.response?.status === 403) {
       toast.error('Acceso denegado. No tienes permisos para realizar esta acción.');
     } else if (err.response?.status === 401) {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+        toast.error('Sesión no autorizada o expirada. Redirigiendo al login...');
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1200);
+      }
       // Ignoramos el 401 aquí porque normalmente AuthContext cierra sesión o redirige
       // Opcionalmente: toast.error('Sesión expirada o inválida.');
     }

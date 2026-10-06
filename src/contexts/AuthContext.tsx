@@ -61,6 +61,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // Carga inicial desde localStorage (solo usuario, el token va en cookie)
     const storedUser = localStorage.getItem('user');
+    const storedToken = localStorage.getItem('token');
+
+    // Si hay usuario pero no hay token, la sesion proviene de la version anterior sin token de respaldo
+    if (storedUser && !storedToken) {
+      localStorage.removeItem('user');
+      setUser(null);
+      setLoading(false);
+      return;
+    }
 
     if (storedUser) {
       try {
